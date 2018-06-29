@@ -1,0 +1,41 @@
+name: Tesla Assignment
+navbar:
+  title: Tesla Assignment
+  type: inverse
+  left:
+  - text: Home
+    icon: fa-home
+    href: index.html
+  - text: Goals
+    icon: fa-lightbulb-o
+    href: objectives.html
+  - text: Data
+    icon: fa-database
+    menu:
+    - text: Structure
+      href: structure.html
+    - text: Dictionary
+      href: dictionary.html
+  - text: Visualization
+    icon: fa-pencil
+    menu:
+    - text: Static Visualization 1 Statistical Analysis
+      href: code2.html
+    - text: Static Visualization 2 in Dimensionality reduction
+      href: PCA.html
+    - text: Static Visualization 3 in Predictive Modeling
+      href: Model.html
+    - text: Interactive Visualization with Shiny
+      href: codeShiny.html
+  - text: Project-Timeline
+    icon: fa-road
+    href: road.html
+output:
+  html_document:
+    df_print: paged
+    theme: simplex
+    highlight: textmate
+    lib_dir: site_libs
+    self_contained: no
+output_dir: _site
+

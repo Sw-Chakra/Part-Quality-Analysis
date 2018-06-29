@@ -1,0 +1,56 @@
+---
+title: Project-Timeline
+output: html_document
+---
+
+
+```{r setup, include= FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.align="center")
+```
+
+\  
+\  
+
+![](docs/Timeline.png){ width=100% }
+
+ \ 
+ \  
+ 
+#### Data Processing: 
+
+The manipulation and analysis of the data and its structure required some pre-processing which has been performed
+
+\  
+
+#### Data Analysis: 
+
+Performed statistical tests on the measurement distributions to find some interesting facts
+
+\  
+
+#### Dimensionality Reduction :  
+
+3D measurement of features come as wide format data with correlations, which could be a hinderance while building predictive models 
+
+This can be overcomed by performing a dimensional reduction using PCA or similar techniques (selection of top N eigen values and eigen vectors of the feature covariance matrix) 
+
+In case of linear regressions, we can also consider lasso regression to build sparse models with key features (to be explored)
+
+\  
+
+#### Interactive Website: 
+
+Built an interactive website (integration of R & Shiny) to assess quality of several critical dimensions machined at Tesla’s Assembly Line
+
+Demonstrated the frequency and extent of failures across the parts and batches through a visibly accessible format 
+
+\  
+
+#### Decision support tool: 
+
+Developed predictive model for decisions and strategy
+
+\  
+
+## ** Thank you **
+

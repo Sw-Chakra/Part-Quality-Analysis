@@ -1,0 +1,488 @@
+---
+title: "PCA & TSNE"
+output: 
+  html_document:
+    df_print: paged
+    code_folding: hide
+    code_download: true 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r include=FALSE}
+### Data Processing:
+#Load libraries, clean data, modify columns (convert values to numeric) and rows as needed for analysis:
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(knitr)
+library(stringr)
+library(lubridate)
+library(readxl)
+library(shiny)
+library(rsconnect)
+library(ggplot2)
+library(stats)
+library(cluster)
+library(scatterplot3d)
+```
+
+
+```{r include= FALSE}
+FIXD71 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-D71")
+FIXD72 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-D72")
+FIXD73 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-D73")
+FIXF11 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-F11")
+FIXF12 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-F12")
+FIXF13 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-F13")
+FIXF13 <- FIXF13[1:137,]
+Machine13 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "MACHINE-13")
+Machine15 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "MACHINE-15")
+```
+
+
+```{r include=FALSE}
+(colnames(FIXD71)==colnames(FIXD72) & colnames(FIXD72)==colnames(FIXD73) & colnames(FIXD73)==colnames(FIXF11) & colnames(FIXF11)==colnames(FIXF12) & colnames(FIXF12)==colnames(FIXF13) & colnames(FIXF12)==colnames(Machine13) & colnames(Machine13)==colnames(Machine15))
+
+((FIXD71[1,])==(FIXD72[1,]) & (FIXD72[1,])==(FIXD73[1,]) & (FIXD73[1,])==(FIXF11[1,]) & (FIXF11[1,])==(FIXF12[1,]) & (FIXF12[1,])==(FIXF13[1,]) & (FIXF13[1,])==(Machine13[1,]) & (Machine13[1,])==(Machine15[1,]) )
+```
+
+
+```{r include=FALSE}
+feauture_names <- c(paste0(colnames(FIXD71),"_", FIXD71[1,])) 
+feauture_names[1:6]<- c("Part_Desc","Date","Status","Shift","Trim","Fixture_model")
+feauture_names <-gsub("-", "_",feauture_names)
+```
+
+
+```{r include= FALSE}
+data_process<-function(data_in,text){
+   # Rename columns
+  DI <- as.data.frame(data_in[5:nrow(data_in),])
+  colnames(DI)<- feauture_names
+  
+  #convert to numeric: ## check that it should not get rounded
+  cols = 7:ncol(DI);    
+  DI[,cols] = apply(DI[,cols], 2, function(x) as.numeric(as.character(x)))
+  
+  ## Next Part
+  myfunc<-function(x,data_in_cap){
+  for (i in x){t= (x<data_in_cap) & (x> -data_in_cap)}
+  return(t)
+  }
+  
+  data_in_cap <- as.numeric(data_in[3,7:ncol(data_in)])
+  flag_data_in <- data.frame(sweep(DI[,7:ncol(DI)], 2, data_in_cap, "myfunc"))
+  
+  flagcols = 1:ncol(flag_data_in);    
+  flag_data_in[,flagcols] = apply(flag_data_in[,flagcols], 2, function(x) as.numeric(as.logical(x)))
+  #all.equal(flag_D71,flag_D71_check)
+  
+  count_flag_data_in_pass <- colSums(flag_data_in)
+  count_flag_data_in_fail <- colSums(!flag_data_in)
+  count_flag_data_out <- data.frame(colnames(flag_data_in),count_flag_data_in_pass,count_flag_data_in_fail)
+  count_flag_data_out$fixture <- text
+  colnames(count_flag_data_out) <- c("feature","pass","fail","fixture_type")
+  
+  return(count_flag_data_out)
+}
+```
+
+
+```{r include= FALSE}
+#A) FIXD71
+# Rename columns
+D71 <- as.data.frame(FIXD71[5:nrow(FIXD71),])
+colnames(D71)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(D71);    
+D71[,cols] = apply(D71[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_D71<- data_process(data_in=FIXD71, text = "FIXD71") 
+```
+
+
+```{r include= FALSE}
+# B) FIXD72
+# Rename columns
+D72 <- as.data.frame(FIXD72[5:nrow(FIXD72),])
+colnames(D72)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(D72);    
+D72[,cols] = apply(D72[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_D72<- data_process(data_in=FIXD72, text = "FIXD72") 
+```
+
+
+
+```{r include= FALSE}
+#C) FIXD73
+# Rename columns
+D73 <- as.data.frame(FIXD73[5:nrow(FIXD73),])
+colnames(D73)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(D73);    
+D73[,cols] = apply(D73[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_D73<- data_process(data_in=FIXD73, text = "FIXD73") 
+```
+
+
+
+```{r include= FALSE}
+#D) FIXF11
+# Rename columns
+F11 <- as.data.frame(FIXF11[5:nrow(FIXF11),])
+colnames(F11)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(F11);    
+F11[,cols] = apply(F11[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_F11<- data_process(data_in=FIXF11, text = "FIXF11") 
+```
+
+
+
+```{r include= FALSE}
+# E) FIXF12
+# Rename columns
+F12 <- as.data.frame(FIXF12[5:nrow(FIXF12),])
+colnames(F12)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(F12);    
+F12[,cols] = apply(F12[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_F12<- data_process(data_in=FIXF12, text = "FIXF12") 
+```
+
+
+
+```{r include= FALSE}
+#F) FIXF13
+#nrow(FIXF13) is 137, others NA values due to formatting
+# Rename columns
+F13 <- as.data.frame(FIXF13[5:nrow(FIXF13),])
+colnames(F13)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(F13);    
+F13[,cols] = apply(F13[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_F13<- data_process(data_in=FIXF13, text = "FIXF13") 
+```
+
+
+
+```{r include= FALSE}
+# G) Machine13
+# Rename columns
+M13 <- as.data.frame(Machine13[5:nrow(Machine13),])
+colnames(M13)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(M13);    
+M13[,cols] = apply(M13[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_M13<- data_process(data_in=Machine13, text = "Machine13") 
+```
+
+
+
+```{r include= FALSE}
+#H) Machine15
+# Rename columns
+M15 <- as.data.frame(Machine15[5:nrow(Machine15),])
+colnames(M15)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(M15);    
+M15[,cols] = apply(M15[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_M15<- data_process(data_in=Machine15, text = "Machine15") 
+```
+
+
+```{r include= FALSE}
+measures_M13_new <- M13[,c(1,7:ncol(M13))] %>% mutate(Part_Desc = paste0(Part_Desc,"_M13"))
+measures_M15_new <- M15[,c(1,7:ncol(M15))] %>% mutate(Part_Desc = paste0(Part_Desc,"_M15"))
+measurement_combine <- rbind(measures_M13_new, measures_M15_new)
+
+#which(duplicated(M13) | duplicated(M13[nrow(M13):1, ])[nrow(M13):1])
+#print(measurement_combine[c(341,342),])
+```
+
+
+Dimensionality reduction using Principal Component Analysis: Top 10 principal components based on highest variances. The below plot shows the degree of variance explained by each of the top 10 PCs, namely PC1, PC2, PC3...
+
+```{r}
+pca_existing <- prcomp(measurement_combine[,-c(1)], scale. = TRUE)
+plot(pca_existing)
+```
+
+Now we pick the top 2 principal components as they explain sufficient information of the datapoints. These 2 new principal dimensions are: PC1, PC2. The measurements of the datapoint along these principal dimensions are as follows (first 5 dataponts)
+
+```{r}
+scores_existing_df <- as.data.frame(pca_existing$x)
+# Show first two PCs for head countries
+scores_existing_df[1:5,1:2]
+```
+
+\  
+
+Now that we have transformed the 49 dimensional datapoints (representing different parts) into 2 principal dimensions, we can visualize there spread in a 2 dimensional plot.
+
+KMEANS CLUSTERING: (10 centroids)
+
+These parts have now been clustered into 10 groups, based on their features. Each colour represents a particular cluster.
+```{r}
+set.seed(1234)
+existing_clustering <- kmeans(measurement_combine[,-c(1)], centers = 10)
+```
+
+
+```{r}
+#PLOT CLUSTERS: (in reduced dimensions : 2 dim )
+existing_cluster_groups <- existing_clustering$cluster
+plot(PC1~PC2, data=scores_existing_df, 
+     main= "Distribution of Clusters",
+     cex = .1, lty = "solid", col=existing_cluster_groups)
+text(PC1~PC2, data=scores_existing_df, 
+     labels=rownames(measurement_combine),
+     cex=.8, col=existing_cluster_groups)
+
+```
+\  
+
+Cluster Interpretation:
+
+1.) How many points do each cluster have?
+
+We go ahead with 10 clusters for our analysis of finding sparse clusters:
+ 
+```{r}
+mydata <- measurement_combine[, -c(1)]
+mydata$cluster <- existing_clustering$cluster
+center_frequency <- table(mydata$cluster) %>% as.data.frame() #%>% arrange(desc(Freq))
+colnames(center_frequency) <- c("centre", "Number_of_points")
+
+center_frequency 
+```
+\  
+
+From the above analysis of dimensionality reduction using PCA followed by Kmeans clustering, cluster 1,4, 5, 7, 9 have some outlier points, forming sparse clusters.
+
+The part indices that fall in the sparse clusters are:
+76  86 140 155 206 256 273 274 275 276 278 283 284 307 308 332 334 335 336 348 349 398 427 431 510 578 627 629 646 658 666 670 (could possibly contain outlier datapoints)
+
+The below parts fall under the clusters that are sparse: 
+```{r}
+indices <- which(mydata$cluster %in% c(1,4,5,7,9))
+fixture_vector <- c((M13$Fixture_model), (M15$Fixture_model)) %>% as.factor()
+machine_vector <- c(rep("M13",373), rep("M15",381)) %>% as.factor()
+
+all_parts <-measurement_combine %>% as.data.frame()
+all_parts$Fixture_model <- fixture_vector
+all_parts$machine_batch <- machine_vector
+
+
+flagged_parts <-all_parts[indices,c("Part_Desc","machine_batch","Fixture_model") ]%>%
+                as.data.frame() 
+
+
+flagged_parts
+```
+\  
+
+Machine wise and Fixture wise Part summary:
+```{r}
+library(dplyr)
+table_flag_machine <-flagged_parts %>% 
+                     group_by(machine_batch,Fixture_model) %>% 
+                     dplyr::summarise(count=n())
+
+table_flag_machine
+```
+\  
+
+We can conclude from the above table that:
+
+There are more parts under M13 than M15 that need to be investigated. Similarly the rank of flagged parts for fixtures is:
+
+D73 > D71> D71> F13=F11>F12
+ 
+ 
+The below plot shows the cluster centres points in each dimensional measurement. The peaks and dips indicate that the particular cluster elements are different at the dimension represented by the point of dip/peak.
+
+```{r}
+xrange <- 1:49
+plot(xrange, existing_clustering$centers[1,], 
+     type='l', xlab="feature number", 
+     ylab="measurement centers", 
+     col = 1 ,
+     ylim=c(-0.5,1.1),
+     xaxt='n',
+     yaxt='n'
+     )
+for (i in 2:nrow(existing_clustering$centers)) {
+    lines(xrange, existing_clustering$centers[i,],
+    col = i)
+}
+legend(x=1, y=1.1, 
+       lty=1, cex = 0.5,
+       ncol = 5,
+       xjust = -0.58,
+       yjust =  0.5,
+       col=1:(nrow(existing_clustering$centers)+1),
+       legend=paste("Cluster",1:nrow(existing_clustering$centers)))
+
+axis(side=1,at=seq(0,50,1),lwd=1, cex.axis=0.50) # horizontal axis
+axis(side=2,at=seq(-0.5,1,0.1),lwd=1,cex.axis=0.50) # vertical axis
+```
+
+
+## Additional/ Alternate Exploration on embeddings:
+
+TSNE visualization: This is an alternate method that visualizes high-dimensional data by giving each datapoint a location in a two or three-dimensional map. It is a variation of Stochastic Neighbor Embedding that allows optimization, and produces significantly better visualizations by reducing the tendency to lump points together in the center of the map that often renders the visualization ineffective and unreadable. t-SNE is good at creating a map that reveals structure and embedding relationships at many different scales. 
+
+```{r include=FALSE}
+library(caret)
+#install.packages("Rtsne")
+library(Rtsne)
+```
+
+```{r}
+set.seed(9)  
+tsne_model_1 = Rtsne(as.matrix(measurement_combine[, -c(1)]), check_duplicates=FALSE, pca=TRUE, perplexity=30, theta=0.5, dims=2)
+
+## getting the two dimension matrix
+d_tsne_1 = as.data.frame(tsne_model_1$Y) 
+```
+
+
+CREATING CLUSTER MODELS: The new principal components are shows below (top 2)
+
+```{r}
+## keeping original data
+d_tsne_1_original=d_tsne_1
+
+## Creating k-means clustering model, and assigning the result to the data used to create the tsne
+fit_cluster_kmeans=kmeans(scale(d_tsne_1), 8)  
+d_tsne_1_original$cl_kmeans = factor(fit_cluster_kmeans$cluster)
+
+## Creating hierarchical cluster model, and assigning the result to the data used to create the tsne
+fit_cluster_hierarchical=hclust(dist(scale(d_tsne_1)))
+
+## setting 6 clusters as output
+d_tsne_1_original$cl_hierarchical = factor(cutree(fit_cluster_hierarchical, k=8)) 
+fit_cluster_kmeans$centers
+```
+\  
+
+Plotting the t-SNE result using 2 clustering methods: K means and heirachial clustering (each shows 8 cluster points)
+```{r include=FALSE}
+plot_cluster=function(data, var_cluster, palette)  
+{
+  ggplot(data, aes_string(x="V1", y="V2", color=var_cluster)) +
+  geom_point(size=0.25) +
+  guides(colour=guide_legend(override.aes=list(size=6))) +
+  xlab("") + ylab("") +
+  ggtitle("") +
+  theme_light(base_size=20) +
+  theme(axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        legend.direction = "horizontal", 
+        legend.position = "bottom",
+        legend.box = "horizontal") + 
+    scale_colour_brewer(palette = palette) 
+}
+
+
+plot_k=plot_cluster(d_tsne_1_original, "cl_kmeans", "Accent")  
+plot_h=plot_cluster(d_tsne_1_original, "cl_hierarchical", "Set1")
+
+## and finally: putting the plots side by side with gridExtra lib...
+library(gridExtra)
+```
+
+```{r}
+grid.arrange(plot_k, plot_h,  ncol=2)  
+```
+
+
+```{r include=FALSE}
+clusplot(mydata, fit_cluster_kmeans$cluster, color=TRUE, shade=TRUE, labels=2, lines=0)
+```
+
+\  
+
+Based on T-SNE  and Kmeans clustering, we would repeat the part quality analysis to confirm the outlier parts:
+
+
+```{r}
+mydata2 <- measurement_combine[, -c(1)]
+mydata2$cluster <- d_tsne_1_original$cl_kmeans
+center_frequency2 <- table(mydata2$cluster) %>% as.data.frame() #%>% arrange(desc(Freq))
+colnames(center_frequency2) <- c("centre", "Number_of_points")
+
+center_frequency2
+```
+\  
+
+The below parts fall under the clusters that are sparse: 
+```{r}
+indices2 <- which(mydata2$cluster %in% c(5,8))
+
+all_parts2 <-measurement_combine %>% as.data.frame()
+all_parts2$Fixture_model <- fixture_vector
+all_parts2$machine_batch <- machine_vector
+
+
+flagged_parts2 <-all_parts2[indices2,c("Part_Desc","machine_batch","Fixture_model") ]%>%
+                as.data.frame() 
+
+flagged_parts2
+```
+\  
+
+Suggested Indices of flagging: 
+
+ 11  14  19  33  39  42  43  52  53  54  55  56  72  74  76  86  97  98 105 125 127 139 185 188 190 191 192 196
+200 203 207 211 212 218 237 240 241 253 254 263 264 271 273 274 275 276 277 278 282 283 284 307 308 473 489 499 520 541 547 555 582 583 653 655 658 666 670 672 676 677 686
+
+Machine wise and Fixture wise Part summary:
+```{r include=FALSE}
+library(dplyr)
+table_flag_machine2 <-flagged_parts2 %>% 
+                     group_by(machine_batch,Fixture_model) %>% 
+                     dplyr::summarise(count=n())
+```
+
+```{r}
+table_flag_machine2
+```
+\  
+
+Now let us move from 2-D reduction to 3-D reduction for more clarity:
+```{r}
+set.seed(9)
+measure_unique <- measurement_combine[, -c(1)]
+tsne <- Rtsne(as.matrix(measurement_combine[, -c(1)]), check_duplicates=FALSE, pca=FALSE, perplexity=50, theta=0.5, dims=3)
+
+
+# Plot using scatterplot3d package
+
+scatterplot3d(x=tsne$Y[,1],y=tsne$Y[,2],z=tsne$Y[,3],
+              color=mydata2$cluster
+             )
+```
+

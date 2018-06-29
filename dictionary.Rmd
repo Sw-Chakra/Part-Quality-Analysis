@@ -1,0 +1,404 @@
+---
+title: Data Dictionary
+output: 
+  html_document:
+    df_print: paged
+    code_folding: hide
+    code_download: true 
+---
+
+
+```{r setup, include= FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.align="center")
+```
+
+```{r, include=FALSE}
+library(readr)
+library(readxl)
+library(tidyverse)
+library(gridExtra)
+library(knitr) 
+library(kableExtra)
+```
+
+## {.tabset .tabset-fade}
+```{r include= FALSE}
+FIXD71 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-D71")
+FIXD72 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-D72")
+FIXD73 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-D73")
+FIXF11 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-F11")
+FIXF12 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-F12")
+FIXF13 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-F13")
+FIXF13 <- FIXF13[1:137,]
+Machine13 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "MACHINE-13")
+Machine15 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "MACHINE-15")
+```
+
+
+```{r include=FALSE}
+(colnames(FIXD71)==colnames(FIXD72) & colnames(FIXD72)==colnames(FIXD73) & colnames(FIXD73)==colnames(FIXF11) & colnames(FIXF11)==colnames(FIXF12) & colnames(FIXF12)==colnames(FIXF13) & colnames(FIXF12)==colnames(Machine13) & colnames(Machine13)==colnames(Machine15))
+
+((FIXD71[1,])==(FIXD72[1,]) & (FIXD72[1,])==(FIXD73[1,]) & (FIXD73[1,])==(FIXF11[1,]) & (FIXF11[1,])==(FIXF12[1,]) & (FIXF12[1,])==(FIXF13[1,]) & (FIXF13[1,])==(Machine13[1,]) & (Machine13[1,])==(Machine15[1,]) )
+```
+
+
+```{r include=FALSE}
+feauture_names <- c(paste0(colnames(FIXD71),"_", FIXD71[1,])) 
+feauture_names[1:6]<- c("Part_Desc","Date","Status","Shift","Trim","Fixture_model")
+feauture_names <-gsub("-", "_",feauture_names)
+```
+
+
+```{r include= FALSE}
+data_process<-function(data_in,text){
+   # Rename columns
+  DI <- as.data.frame(data_in[5:nrow(data_in),])
+  colnames(DI)<- feauture_names
+  
+  #convert to numeric: ## check that it should not get rounded
+  cols = 7:ncol(DI);    
+  DI[,cols] = apply(DI[,cols], 2, function(x) as.numeric(as.character(x)))
+  
+  ## Next Part
+  myfunc<-function(x,data_in_cap){
+  for (i in x){t= (x<data_in_cap) & (x> -data_in_cap)}
+  return(t)
+  }
+  
+  data_in_cap <- as.numeric(data_in[3,7:ncol(data_in)])
+  flag_data_in <- data.frame(sweep(DI[,7:ncol(DI)], 2, data_in_cap, "myfunc"))
+  
+  flagcols = 1:ncol(flag_data_in);    
+  flag_data_in[,flagcols] = apply(flag_data_in[,flagcols], 2, function(x) as.numeric(as.logical(x)))
+  #all.equal(flag_D71,flag_D71_check)
+  
+  count_flag_data_in_pass <- colSums(flag_data_in)
+  count_flag_data_in_fail <- colSums(!flag_data_in)
+  count_flag_data_out <- data.frame(colnames(flag_data_in),count_flag_data_in_pass,count_flag_data_in_fail)
+  count_flag_data_out$fixture <- text
+  colnames(count_flag_data_out) <- c("feature","pass","fail","fixture_type")
+  
+  return(count_flag_data_out)
+}
+```
+
+
+```{r include= FALSE}
+#A) FIXD71
+# Rename columns
+D71 <- as.data.frame(FIXD71[5:nrow(FIXD71),])
+colnames(D71)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(D71);    
+D71[,cols] = apply(D71[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_D71<- data_process(data_in=FIXD71, text = "FIXD71") 
+```
+
+
+```{r include= FALSE}
+# B) FIXD72
+# Rename columns
+D72 <- as.data.frame(FIXD72[5:nrow(FIXD72),])
+colnames(D72)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(D72);    
+D72[,cols] = apply(D72[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_D72<- data_process(data_in=FIXD72, text = "FIXD72") 
+```
+
+
+
+```{r include= FALSE}
+#C) FIXD73
+# Rename columns
+D73 <- as.data.frame(FIXD73[5:nrow(FIXD73),])
+colnames(D73)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(D73);    
+D73[,cols] = apply(D73[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_D73<- data_process(data_in=FIXD73, text = "FIXD73") 
+```
+
+
+
+```{r include= FALSE}
+#D) FIXF11
+# Rename columns
+F11 <- as.data.frame(FIXF11[5:nrow(FIXF11),])
+colnames(F11)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(F11);    
+F11[,cols] = apply(F11[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_F11<- data_process(data_in=FIXF11, text = "FIXF11") 
+```
+
+
+
+```{r include= FALSE}
+# E) FIXF12
+# Rename columns
+F12 <- as.data.frame(FIXF12[5:nrow(FIXF12),])
+colnames(F12)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(F12);    
+F12[,cols] = apply(F12[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_F12<- data_process(data_in=FIXF12, text = "FIXF12") 
+```
+
+
+
+```{r include= FALSE}
+#F) FIXF13
+#nrow(FIXF13) is 137, others NA values due to formatting
+# Rename columns
+F13 <- as.data.frame(FIXF13[5:nrow(FIXF13),])
+colnames(F13)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(F13);    
+F13[,cols] = apply(F13[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_F13<- data_process(data_in=FIXF13, text = "FIXF13") 
+```
+
+
+
+```{r include= FALSE}
+# G) Machine13
+# Rename columns
+M13 <- as.data.frame(Machine13[5:nrow(Machine13),])
+colnames(M13)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(M13);    
+M13[,cols] = apply(M13[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_M13<- data_process(data_in=Machine13, text = "Machine13") 
+```
+
+
+
+```{r include= FALSE}
+#H) Machine15
+# Rename columns
+M15 <- as.data.frame(Machine15[5:nrow(Machine15),])
+colnames(M15)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(M15);    
+M15[,cols] = apply(M15[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_M15<- data_process(data_in=Machine15, text = "Machine15") 
+```
+
+
+### FIXTURE D71
+This dataset contains the parts that are machined by fixture D71 of Machine 13. It has multiple parts that are processed by it, which is represented by its rows. The columns show the nominal value, upper tolerance cap and lower tolerance cap for each feature specification like diameter, flatness cylindricity etc.
+
+It consists of 150 observations + 3 specifications in its rows and 54 feature columns. 
+
+Below is the snippet of the Fixture D71:
+
+```{r message = FALSE,cols.print=10, rows.print=10}
+D71
+```
+
+
+Important Variables common for all the  datasets are:
+
+
+#### {.tabset .tabset-fade}
+
+
+##### *Diameter*:
+
+* SC01-DIA
+
+* SC03-DIA
+
+* SC05-DIA
+
+* SC07-DIA
+
+* SC08-DIA
+
+* SC09-DIA
+
+* SC16-DIA-1
+
+* SC16-DIA-2
+
+##### *Distance*:
+
+* SC06-DIST	
+
+* SC10-DIST
+
+* SC10-DIST
+
+* SC10-DIST	
+
+* SC13-DIST-1	
+
+* SC13-DIST-2	
+
+* SC13-DIST-3	
+
+* SC13-DIST-4	
+
+* SC15-DIST
+
+* SC05-DIS
+
+##### *Flatness*:
+
+* PLN-A-FLT	
+
+* SC03-FLT	
+	
+##### *Position coordinates*:	
+
+* SC02-TP-X	
+
+* SC02-TP-Z	
+
+* SC02-TP	
+
+* SC05-TP-X	
+
+* SC05-TP-Z	
+
+* SC05-TP	
+
+* SC05-CYL	
+
+* SC07-TP-X	
+
+* SC07-TP-Z	
+
+* SC07-TP	
+
+* SC08-TP-X-AF	
+
+* SC08-TP-Z-AF	
+
+* SC08-TP-AF	
+
+* SC08-TP-X-ABC	
+
+* SC08-TP-Z-ABC	
+
+* SC08-TP-ABC	
+
+* SC09-TP-X-ABC	
+
+* SC09-TP-Z-ABC	
+
+* SC09-TP-ABC	
+
+* SC09-TP-X-AF	
+
+* SC09-TP-Z-AF
+
+* SC09-TP-AF
+
+* SC16-TP-X	
+
+* SC16-TP-Z	
+
+* SC16-TP	
+
+* SC14-TP-X	
+
+* SC14-TP-Z	
+
+* SC14-TP
+
+##### *Others*:
+* SC03-PARA
+
+
+### FIXTURE D72
+This dataset contains the parts that are machined by fixture D72 of Machine 13. It has multiple parts that are processed by it, which is represented by its rows. The columns show the nominal value, upper tolerance cap and lower tolerance cap for each feature specification like diameter, flatness cylindricity etc.
+
+It consists of 98 observations + 3 specifications in its rows and 54 feature columns.  
+
+Below is the snippet of the Fixture D72:
+
+```{r message = FALSE}
+D72
+```
+
+### FIXTURE D73
+This dataset contains the parts that are machined by fixture D73 of Machine 13. It has multiple parts that are processed by it, which is represented by its rows. The columns show the nominal value, upper tolerance cap and lower tolerance cap for each feature specification like diameter, flatness cylindricity etc.
+
+It consists of 125 observations + 3 specifications in its rows and 49 dimensional feature columns + 5 additional information columns.  
+
+Below is the snippet of the Fixture D73:
+
+```{r message = FALSE}
+D73
+```
+
+### FIXTURE F11
+This dataset contains the parts that are machined by fixture F11 of Machine 15. It has multiple parts that are processed by it, which is represented by its rows. The columns show the nominal value, upper tolerance cap and lower tolerance cap for each feature specification like diameter, flatness cylindricity etc.
+
+
+It consists of 136 observations + 3 specifications in its rows and 49 dimensional feature columns + 5 additional information columns.  
+
+Below is the snippet of Fixture F11 Dataset:
+
+```{r message = FALSE}
+F11
+```
+
+
+### FIXTURE F12
+This dataset contains the parts that are machined by fixture F12 of Machine 15. It has multiple parts that are processed by it, which is represented by its rows. The columns show the nominal value, upper tolerance cap and lower tolerance cap for each feature specification like diameter, flatness cylindricity etc.
+
+It consists of 112 observations + 3 specifications in its rows and 49 dimensional feature columns + 5 additional information columns.  
+
+Below is the snippet of the Fixture F12:
+
+```{r message = FALSE}
+F12
+```
+
+
+### FIXTURE F13
+This dataset contains the parts that are machined by fixture F13 of Machine 15. It has multiple parts that are processed by it, which is represented by its rows. The columns show the nominal value, upper tolerance cap and lower tolerance cap for each feature specification like diameter, flatness cylindricity etc.
+
+It consists of 133 observations + 3 specifications in its rows and 49 dimensional feature columns + 5 additional information columns.  
+
+Below is the snippet of the Fixture F13:
+
+```{r message = FALSE}
+F13
+```
+
+
+### Machine M13
+Aggregated tables: This is a consolidated table of Fixture D71, D72, D73.
+
+```{r message = FALSE}
+M13
+```
+
+
+### Machine M15
+Aggregated tables: This is a consolidated table of Fixture F11, F12, F13
+
+```{r message = FALSE}
+M15
+```
+

@@ -1,0 +1,48 @@
+---
+title: Data Structure
+output: 
+  html_document:
+    df_print: paged
+---
+
+
+```{r setup, include= FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.align="center")
+```
+
+
+![](docs/structure.png){ width=100% }
+
+\  
+
+Tesla machines a part on two different machines – Machine 13 and Machine 15. For each machine there are 3 individual fixtures which hold the part in position while it is being machined.
+
+Machine 13 has Fixtures D71, D72 & D73 
+
+Machine 15 has Fixtures F11, F12 & F13
+
+There are a number of critical dimensions which are measured on this part:
+
+* DIA     – 	Diameter
+
+* DIST    – 	Distance
+
+* PERP    – 	Perpendicularity
+
+* FLT     – 	Flatness
+
+* CYL     – 	Cylindricity
+
+* TP      – 	Position (Sum of squares of X and Z coordinate multiplied by 2)
+
+* X       – 	Location in X Axis
+
+* Z       – 	Location in Z Axis
+
+ \  
+ 
+ 
+ ![](docs/Tesla-Model-S-assembly-line.jpg){ width=100% }
+
+
+

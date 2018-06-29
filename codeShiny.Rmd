@@ -1,0 +1,2559 @@
+---
+title: Data Visualization using Shiny (Interactive)
+runtime: shiny
+output: 
+  html_document:
+    df_print: paged
+    code_folding: hide
+    code_download: true 
+---
+
+```{r setup, include= FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.align="center")
+```
+
+This is an interactive page (user selects the inputs to see a particular plot), and can be hosted only through Shiny Server (public) or through personal laptop which has the required packages and applications to connect with Shiny. This page might appear blank due to inadequacy of resources, hence would be demonstrated during the onsite presentation. Kindly refer to the "STATIC VISUALIZATION TAB" for initial reference.
+
+## {.tabset .tabset-fade}
+
+### Distribution Overview:
+
+```{r include=FALSE}
+### Data Processing:
+#Load libraries, clean data, modify columns (convert values to numeric) and rows as needed for analysis:
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(knitr)
+library(stringr)
+library(lubridate)
+library(readxl)
+library(shiny)
+library(rsconnect)
+library(ggplot2)
+```
+
+
+```{r include= FALSE}
+# read import data
+FIXD71 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-D71")
+FIXD72 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-D72")
+FIXD73 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-D73")
+FIXF11 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-F11")
+FIXF12 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-F12")
+FIXF13 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-F13")
+FIXF13 <- FIXF13[1:137,]
+Machine13 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "MACHINE-13")
+Machine15 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "MACHINE-15")
+```
+
+
+```{r include=FALSE}
+## to check if the column features are same for all sheets
+(colnames(FIXD71)==colnames(FIXD72) & colnames(FIXD72)==colnames(FIXD73) & colnames(FIXD73)==colnames(FIXF11) & colnames(FIXF11)==colnames(FIXF12) & colnames(FIXF12)==colnames(FIXF13) & colnames(FIXF12)==colnames(Machine13) & colnames(Machine13)==colnames(Machine15))
+
+((FIXD71[1,])==(FIXD72[1,]) & (FIXD72[1,])==(FIXD73[1,]) & (FIXD73[1,])==(FIXF11[1,]) & (FIXF11[1,])==(FIXF12[1,]) & (FIXF12[1,])==(FIXF13[1,]) & (FIXF13[1,])==(Machine13[1,]) & (Machine13[1,])==(Machine15[1,]) )
+```
+
+
+```{r include=FALSE}
+feauture_names <- c(paste0(colnames(FIXD71),"_", FIXD71[1,])) 
+feauture_names[1:6]<- c("Part_Desc","Date","Status","Shift","Trim","Fixture_model")
+feauture_names <-gsub("-", "_",feauture_names)
+```
+
+
+```{r include= FALSE}
+# data pre processing function
+data_process<-function(data_in,text){
+   # Rename columns
+  DI <- as.data.frame(data_in[5:nrow(data_in),])
+  colnames(DI)<- feauture_names
+  
+  #convert to numeric: ## check that it should not get rounded
+  cols = 7:ncol(DI);    
+  DI[,cols] = apply(DI[,cols], 2, function(x) as.numeric(as.character(x)))
+  
+  ## Next Part
+  myfunc<-function(x,data_in_cap){
+  for (i in x){t= (x<data_in_cap) & (x> -data_in_cap)}
+  return(t)
+  }
+  
+  data_in_cap <- as.numeric(data_in[3,7:ncol(data_in)])
+  flag_data_in <- data.frame(sweep(DI[,7:ncol(DI)], 2, data_in_cap, "myfunc"))
+  
+  flagcols = 1:ncol(flag_data_in);    
+  flag_data_in[,flagcols] = apply(flag_data_in[,flagcols], 2, function(x) as.numeric(as.logical(x)))
+  #all.equal(flag_D71,flag_D71_check)
+  
+  ## tabulate out of tolerance failure and passed obs againts all features
+  count_flag_data_in_pass <- colSums(flag_data_in)
+  count_flag_data_in_fail <- colSums(!flag_data_in)
+  count_flag_data_out <- data.frame(colnames(flag_data_in),count_flag_data_in_pass,count_flag_data_in_fail)
+  count_flag_data_out$fixture <- text
+  colnames(count_flag_data_out) <- c("feature","pass","fail","fixture_type")
+  
+  return(count_flag_data_out)
+}
+```
+
+
+```{r include= FALSE}
+#A) FIXD71 : function call to pre processing
+# Rename columns
+D71 <- as.data.frame(FIXD71[5:nrow(FIXD71),])
+colnames(D71)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(D71);    
+D71[,cols] = apply(D71[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_D71<- data_process(data_in=FIXD71, text = "FIXD71") 
+```
+
+
+```{r include= FALSE}
+# B) FIXD72 : function call to pre processing
+# Rename columns
+D72 <- as.data.frame(FIXD72[5:nrow(FIXD72),])
+colnames(D72)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(D72);    
+D72[,cols] = apply(D72[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_D72<- data_process(data_in=FIXD72, text = "FIXD72") 
+```
+
+
+
+```{r include= FALSE}
+#C) FIXD73 : function call to pre processing
+# Rename columns
+D73 <- as.data.frame(FIXD73[5:nrow(FIXD73),])
+colnames(D73)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(D73);    
+D73[,cols] = apply(D73[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_D73<- data_process(data_in=FIXD73, text = "FIXD73") 
+```
+
+
+
+```{r include= FALSE}
+#D) FIXF11 : function call to pre processing
+# Rename columns
+F11 <- as.data.frame(FIXF11[5:nrow(FIXF11),])
+colnames(F11)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(F11);    
+F11[,cols] = apply(F11[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_F11<- data_process(data_in=FIXF11, text = "FIXF11") 
+```
+
+
+
+```{r include= FALSE}
+# E) FIXF12 : function call to pre processing
+# Rename columns
+F12 <- as.data.frame(FIXF12[5:nrow(FIXF12),])
+colnames(F12)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(F12);    
+F12[,cols] = apply(F12[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_F12<- data_process(data_in=FIXF12, text = "FIXF12") 
+```
+
+
+
+```{r include= FALSE}
+#F) FIXF13 : function call to pre processing
+#nrow(FIXF13) is 137, others NA values due to formatting
+# Rename columns
+F13 <- as.data.frame(FIXF13[5:nrow(FIXF13),])
+colnames(F13)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(F13);    
+F13[,cols] = apply(F13[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_F13<- data_process(data_in=FIXF13, text = "FIXF13") 
+```
+
+
+
+```{r include= FALSE}
+# G) Machine13 : function call to pre processing
+# Rename columns
+M13 <- as.data.frame(Machine13[5:nrow(Machine13),])
+colnames(M13)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(M13);    
+M13[,cols] = apply(M13[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_M13<- data_process(data_in=Machine13, text = "Machine13") 
+```
+
+
+
+```{r include= FALSE}
+#H) Machine15 : function call to pre processing
+# Rename columns
+M15 <- as.data.frame(Machine15[5:nrow(Machine15),])
+colnames(M15)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(M15);    
+M15[,cols] = apply(M15[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_M15<- data_process(data_in=Machine15, text = "Machine15") 
+```
+
+
+```{r}
+# Define function:
+
+## distribution
+dist_summary <- function(dataset, text, feature){
+  
+  
+  ## DIAMETERS:
+  dia <- grep("_DIA", count_F11$feature)
+  dia_features <- count_F11[dia,1]
+  dataset_dia <-dataset %>% select(C0009DB011_SC01_DIA, 
+                                   C0009DC021_SC03_DIA,
+                                   C0009P0051_SC05_DIA,
+                                   C0009DF073_SC07_DIA,
+                                   C0009DE083_SC08_DIA, 
+                                   C0009PD091_SC09_DIA,   
+                                   C0009DQ001_SC16_DIA_1, 
+                                   C0009DQ002_SC16_DIA_2)%>%
+              gather("diameter_feature","measurement",1:8)
+  
+  
+  
+  p1 <-ggplot(dataset_dia,aes(x=measurement,fill=diameter_feature)) +
+       geom_density(alpha=.3) + geom_vline(xintercept=0) +
+       ggtitle(paste0("Diameters Measurement Distribution in ",text))+
+       theme(plot.title = element_text(size = 20, face = "bold",hjust = 0.5),
+                                       panel.background = element_rect(fill = 'white'),
+                                       axis.text.y=element_blank(),
+                                       axis.ticks.y = element_blank(),
+                                       axis.title.y = element_blank(),
+                                       legend.position = "bottom") +
+      coord_cartesian(xlim = c(-0.025, 0.025))+
+      scale_x_continuous(name="Measurement", labels = scales::comma) +
+      labs(fill = "diameter_feature",y="Frequency")
+  
+  ## DISTANCE:
+  dist <- grep("DIS", count_F11$feature)
+  dist_features <- count_F11[dist,1]
+
+  dataset_dist <-dataset %>% select(S0009P0061_SC06_DIST, 
+                                    S0009P0101_SC10_DIST,
+                                    S0009P0111_SC10_DIST,   
+                                    S0009P0121_SC10_DIST,
+                                    S0009P0131_SC13_DIST_1, 
+                                    S0009P0132_SC13_DIST_2,
+                                    S0009P0133_SC13_DIST_3, 
+                                    S0009P0134_SC13_DIST_4, 
+                                    S0009P0177_SC15_DIST)%>%
+                gather("distance_feature","measurement",1:9)
+  
+  p2 <- ggplot(dataset_dist,aes(x=measurement,fill=distance_feature)) +
+        geom_density(alpha=.1) + geom_vline(xintercept=0) +
+        ggtitle(paste0("Distance Measurement Distribution in ",text))+
+        theme(plot.title = element_text(size = 20, face = "bold",hjust = 0.5),
+        panel.background = element_rect(fill = 'white'),
+                                        axis.text.y=element_blank(),
+                                        axis.ticks.y = element_blank(),
+                                        axis.title.y = element_blank(),
+                                        legend.position = "bottom") +
+      coord_cartesian(xlim = c(-0.25, 0.25))+
+      scale_x_continuous(name="Measurement", labels = scales::comma) +
+      labs(fill = "distance_feature",y="Frequency")
+  
+  
+  
+  ## CYLINDER:
+  cyl <- grep("CYL", count_F11$feature)
+  cyl_features <- count_F11[cyl,1]
+
+  dataset_cyl <-dataset %>% select(C0009P0053_SC05_CYL)%>%
+                gather("distance_feature","measurement",1)
+  
+  p3<-ggplot(dataset_cyl,aes(x=measurement,fill=cyl_features)) +
+      geom_density(alpha=.1) + geom_vline(xintercept=0) +
+      ggtitle(paste0("Cylindrical Measurement Distribution in ",text))+
+      theme(plot.title = element_text(size = 20, face = "bold",hjust = 0.5),
+                                      panel.background = element_rect(fill = 'white'),
+                                      axis.text.y=element_blank(),
+                                      axis.ticks.y = element_blank(),
+                                      axis.title.y = element_blank(),
+                                      legend.position = "bottom") +
+      scale_x_continuous(name="Measurement", labels = scales::comma) +
+      labs(fill = "cyl_features",y="Frequency")
+
+  
+  if (feature == "Diameter"){
+    return(p1)
+  } else if (feature == "Distance"){
+    return(p2)
+  } else {
+    return(p3)
+  }
+}
+```
+\  
+
+Overview of measurement distributions of diameter, distance, flatness, cylindricity, position across fixtures and machines:
+
+```{r}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-pageWithSidebar(
+  
+  # Application title
+  headerPanel("Enter Distribution Inputs"),
+  
+  sidebarPanel(
+                selectInput("dataset", 
+                            "Choose a dataset:", 
+                            choices = c("D71", "D72", "D73","F11","F12","F13","M13","M15")
+                            ),
+                selectInput("feature", 
+                            "Choose a feature:", 
+                            choices = c("Diameter", "Distance", "Cylindricity")
+                )
+              ),
+  
+
+  mainPanel(
+                plotOutput("plot1")
+          )
+),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+
+  
+  output$plot1 <- renderPlot({
+    dist_summary(dataset = get(input$dataset),text = input$dataset, feature=input$feature)
+  })
+  
+}),
+  
+options = list(height = 500) 
+  
+)
+
+
+```
+
+\  
+
+
+In order to look at the individual feature distributions and compare them across fixtures, please choose the combinations that you would like to investigate. You may use the Range slider to have a closer look within the span of the distribution. 
+
+
+```{r include= FALSE}
+measures_D71 <- D71[,7:ncol(D71)]
+measures_D72 <- D72[,7:ncol(D72)]
+measures_D73 <- D73[,7:ncol(D73)]
+measures_F11 <- F11[,7:ncol(F11)]
+measures_F12 <- F12[,7:ncol(F12)]
+measures_F13 <- F13[,7:ncol(F13)]
+measures_M13 <- M13[,7:ncol(M13)]
+measures_M15 <- M15[,7:ncol(M15)]
+
+measures_D71$fixture_batch <-"FIXTURE_D71"
+measures_D72$fixture_batch <-"FIXTURE_D72"
+measures_D73$fixture_batch <-"FIXTURE_D73"
+measures_F11$fixture_batch <-"FIXTURE_F11"
+measures_F12$fixture_batch <-"FIXTURE_F12"
+measures_F13$fixture_batch <-"FIXTURE_F13"
+measures_M13$fixture_batch <-"MACHINE_M13"
+measures_M15$fixture_batch <-"MACHINE_M15"
+
+
+measurement_all <- rbind(measures_D71, measures_D72,
+                         measures_D73, measures_F11,
+                         measures_F12, measures_F13) %>% select(50, 1:49)
+
+
+## function definition
+distribution_comparison <- function(fixture_list, feature,input_range){
+  range <- input_range
+
+  distribution <-measurement_all %>% 
+                 filter(fixture_batch  %in% fixture_list) %>% 
+                 select(fixture_batch,feature)
+
+  colnames(distribution)<- c("fixture_batch", "measurement")
+  distribution_plot <- ggplot(distribution,aes(x=measurement,fill=fixture_batch)) +
+                       geom_density(alpha=0.1) + geom_vline(xintercept=0)+     
+                       ggtitle(paste0("Measurement Distribution"))+
+                       theme(plot.title = element_text(size = 20, 
+                                                       face = "bold",hjust = 0.5),
+                            panel.background = element_rect(fill = 'white'),
+                            axis.text.y=element_blank(),
+                            axis.ticks.y = element_blank(),
+                            axis.title.y = element_blank(),
+                            legend.position = "bottom") +
+                      coord_cartesian(xlim = range)+
+                      scale_x_continuous(name="Measurement", labels = scales::comma) +
+                      labs(fill = "fixture_batch",y="Frequency")
+
+  return(distribution_plot)
+}
+```
+
+```{r}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-pageWithSidebar(
+  
+  # Application title
+  headerPanel("Distribution Comparison"),
+  
+  sidebarPanel(
+                selectInput("fixture", 
+                            "Choose a fixture:", 
+                            choices = list("FIXTURE_D71", 
+                                        "FIXTURE_D72", 
+                                        "FIXTURE_D73",
+                                        "FIXTURE_F11",
+                                        "FIXTURE_F12",
+                                        "FIXTURE_F13"
+                                        ),
+                            selected = list("FIXTURE_D72","FIXTURE_F12"),
+                            multiple = TRUE
+                            ),
+                selectInput("feature", 
+                            "Choose a feature:", 
+                            choices = colnames(measurement_all[,2:50]),
+                            selected = "C0009DE083_SC08_DIA"
+                ),
+
+                  sliderInput(
+                    "range", 
+                    label = "Range:", 
+                    min = -0.5, 
+                    max = 0.5, 
+                    value = c(-0.006, 0.025),
+                    step = 0.001
+                    )
+              ),
+  
+
+  mainPanel(
+                h6(textOutput("multiple_fixture")),
+                plotOutput("plot_dist")
+          )
+),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+    output$multiple_fixture <- renderText({
+    x <- input$fixture
+    paste("Comparison of Distribution of ", input$feature, " across ",
+          paste(as.character(x), collapse = ", "))
+  })
+  
+  output$plot_dist <- renderPlot({
+    distribution_comparison(fixture_list= as.character(input$fixture),
+                        feature=input$feature,
+                        input_range = as.numeric(c(input[["range"]][1],
+                                                   input[["range"]][2]))
+                        )
+  })
+  
+}),
+  
+options = list(height = 500) 
+  
+)
+
+```
+\  
+
+From above, we see that although most of the distributions could be approximated to normal, many of them are yet bi-modal or tri-modal, which could be a hindrance in various statistical tests. Thus a few transformations have been tried:
+
+1. log (c + measurement), where C is a constant to handle negative arguments into log 
+2. abs(measurement - mean(measurement)) --> for bimodal
+3. BoxCox Transformation
+
+However for simplicity, the below analysis is based on the assumption of normality of all the data.
+
+Compare Means:
+
+```{r include= FALSE}
+#Function to calculate mean and std_err
+
+
+data_summary <- function(data, varname, groupnames){
+
+  summary_func <- function(x, col){
+    c(mean = mean(x[[col]], na.rm=TRUE),
+      sd = sd(x[[col]], na.rm=TRUE))
+  }
+  library(plyr)
+  data_sum<-plyr::ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  library(dplyr)
+  data_sum <- rename(data_sum, c("mean" = varname))
+ return(data_sum)
+}
+```
+
+
+
+```{r include= FALSE}
+#Visualize Variations across Fixtures w.r.t Diameter:
+## table consolidation of count fail and count pass for each dimensional feature
+count_all_fixtures <- rbind(count_D71, count_D72, count_D73, count_F11, count_F12, count_F13)
+
+## DIAMETERS:
+dia <- grep("_DIA", count_F11$feature)
+dia_features <- count_F11[dia,1]
+
+dia_summary_list <- list()
+i<-1
+for (var in unique(dia_features)){
+  measurement_summary <- data_summary(measurement_all, varname=var,
+                    groupnames=c("fixture_batch"))
+  dia_summary_list[[i]] <- measurement_summary
+  i<-i+1
+}
+
+
+i<- 1
+compare_mean_dia_list <- list()
+for (var in unique(dia_features)){
+  data <-dia_summary_list[[i]]
+  colnames(data) <- c("fixture_batch","DIA_MEASURE","sd")
+  compare_mean_dia_list[[i]]<- ggplot(data,aes(x=fixture_batch, y=DIA_MEASURE,  
+                                               fill=fixture_batch)) +
+                               geom_bar(stat="identity", color="black",
+                                        position=position_dodge()) +
+                               geom_errorbar(aes(ymin=DIA_MEASURE-sd, 
+                                                 ymax=DIA_MEASURE+sd), 
+                                                 width=.2,
+                                                 position=position_dodge(.9)) +
+                               geom_hline(yintercept = 0)+
+                               labs(title= paste0("Mean & Standard Deviation across feature ",var), x="Fixture batch", y = "Measurement")+
+                               theme_classic() +
+                               theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+                               scale_fill_brewer(palette="Reds")
+  i<-i+1
+ }
+```
+
+
+```{r include= FALSE}
+# Visualize Variations across Fixtures w.r.t Distance:
+## DISTANCE:
+dist <- grep("DIS", count_all_fixtures$feature)
+dist_features <- count_all_fixtures[dist,1]
+
+dist_summary_list <- list()
+i<-1
+for (var in unique(dist_features)){
+  measurement_summary <- data_summary(measurement_all, varname=var,
+                    groupnames=c("fixture_batch"))
+  dist_summary_list[[i]] <- measurement_summary
+  i<-i+1
+}
+
+
+i<- 1
+compare_mean_dist_list <- list()
+for (var in unique(dist_features)){
+  data <-dist_summary_list[[i]]
+  colnames(data) <- c("fixture_batch","DIST_MEASURE","sd")
+  compare_mean_dist_list[[i]]<- ggplot(data,aes(x=fixture_batch, y=DIST_MEASURE, fill=fixture_batch)) +
+      geom_bar(stat="identity", color="black",
+      position=position_dodge()) +
+      geom_errorbar(aes(ymin=DIST_MEASURE-sd, ymax=DIST_MEASURE+sd), width=.2,
+                 position=position_dodge(.9)) +
+      geom_hline(yintercept = 0)+
+      labs(title= paste0("Mean & Standard Deviation across feature ",var), x="Fixture batch", y = "Measurement")+
+      theme_classic() +
+      theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+      scale_fill_brewer(palette="Reds")
+  i<-i+1
+  
+}
+```
+
+
+```{r include=FALSE}
+# Visualize Variations across Fixtures w.r.t Flatness:
+## FLATNESS: ALL within range: No Failure
+flt <- grep("_FLT", count_all_fixtures$feature)
+flt_features <- count_all_fixtures[flt,1]
+
+dist_summary_list <- list()
+i<-1
+for (var in unique(flt_features)){
+  measurement_summary <- data_summary(measurement_all, varname=var,
+                    groupnames=c("fixture_batch"))
+  dist_summary_list[[i]] <- measurement_summary
+  i<-i+1
+}
+
+
+i<- 1
+compare_mean_flt_list <-list()
+for (var in unique(flt_features)){
+  data <-dist_summary_list[[i]]
+  colnames(data) <- c("fixture_batch","FLATNESS_MEASURE","sd")
+  compare_mean_flt_list[[i]]<- ggplot(data,aes(x=fixture_batch, y=FLATNESS_MEASURE, fill=fixture_batch)) +
+      geom_bar(stat="identity", color="black",
+      position=position_dodge()) +
+      geom_errorbar(aes(ymin=FLATNESS_MEASURE-sd, ymax=FLATNESS_MEASURE+sd), width=.2,
+                 position=position_dodge(.9)) +
+      geom_hline(yintercept = 0)+
+      labs(title= paste0("Mean & Standard Deviation across feature ",var), x="Fixture batch", y = "Measurement")+
+      theme_classic() +
+      theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+      scale_fill_brewer(palette="Reds")
+  i<-i+1
+}
+```
+
+
+```{r include= FALSE}
+# Visualize Variations across Fixtures w.r.t Cylindricity:
+## CYLINDER: 
+cyl <- grep("CYL", count_F11$feature)
+cyl_features <- count_F11[cyl,1]
+
+cyl_summary_list <- list()
+i<-1
+for (var in cyl_features){
+  measurement_summary <- data_summary(measurement_all, varname=var,
+                    groupnames=c("fixture_batch"))
+  cyl_summary_list[[i]] <- measurement_summary
+  i<-i+1
+}
+
+
+i<- 1
+compare_mean_cyl_list <- list()
+for (var in cyl_features){
+  data <-cyl_summary_list[[i]]
+  colnames(data) <- c("fixture_batch","CYL_MEASURE","sd")
+  compare_mean_cyl_list[[i]]<- ggplot(data,aes(x=fixture_batch, y=CYL_MEASURE, fill=fixture_batch)) +
+      geom_bar(stat="identity", color="black",
+      position=position_dodge()) +
+      geom_hline(yintercept = 0)+
+      geom_errorbar(aes(ymin=CYL_MEASURE-sd, ymax=CYL_MEASURE+sd), width=.2,
+                 position=position_dodge(.9)) +
+      labs(title= paste0("Mean & Standard Deviation across feature ",var), x="Fixture batch", y = "Measurement")+
+      theme_classic() +
+      theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+      scale_fill_brewer(palette="Reds")
+  i<-i+1
+}
+```
+
+
+
+
+```{r include=FALSE}
+#Visualize Variations across Fixtures w.r.t TP positioning:
+## TP:
+tp1 <- grep("_TP", count_F11$feature)
+tp1_features <- count_F11[tp1,1]
+
+tp2 <- grep("_TP_", count_F11$feature)
+tp2_features <- count_F11[tp2,1]
+
+tp <- tp1[is.na(pmatch(tp1,tp2))]
+tp_features <- count_F11[tp,1]
+
+
+dist_summary_list <- list()
+i<-1
+for (var in unique(tp_features)){
+  measurement_summary <- data_summary(measurement_all, varname=var,
+                    groupnames=c("fixture_batch"))
+  dist_summary_list[[i]] <- measurement_summary
+  i<-i+1
+}
+
+
+i<- 1
+compare_mean_tp_list <- list()
+for (var in unique(tp_features)){
+  data <-dist_summary_list[[i]]
+  colnames(data) <- c("fixture_batch","POS_MEASURE","sd")
+  compare_mean_tp_list[[i]]<- ggplot(data,aes(x=fixture_batch, y=POS_MEASURE, fill=fixture_batch)) +
+      geom_bar(stat="identity", color="black",
+      position=position_dodge()) +
+      geom_errorbar(aes(ymin=POS_MEASURE-sd, ymax=POS_MEASURE+sd), width=.2,
+                 position=position_dodge(.9)) +
+      geom_hline(yintercept = 0)+
+      labs(title= paste0("Mean & Standard Deviation across feature ",var), x="Fixture batch", y = "Measurement")+
+      theme_classic() +
+      theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+      scale_fill_brewer(palette="Reds")
+  i<-i+1
+}
+```
+
+
+```{r include=FALSE}
+compare_means <- function(feature_category, feature){
+  
+  if (feature_category == "Diameter") {
+                           if (feature %in% unique(dia_features)){
+                            i <-which(feature == unique(dia_features))
+                            return(compare_mean_dia_list[[i]])}
+                            
+  }  else if (feature_category == "Distance") {
+                          if (feature %in% unique(dist_features)){
+                            i <-which(feature == unique(dist_features))
+                            return(compare_mean_dist_list[[i]])}
+                                            
+  } else if (feature_category == "Flatness"){
+                          if (feature %in% unique(flt_features)){
+                            i <-which(feature == unique(flt_features))
+                            return(compare_mean_flt_list[[i]])}
+    
+  } else if (feature_category == "Cylindricity") {
+                           if (feature %in% unique(cyl_features)){
+                            i <-which(feature == unique(cyl_features))
+                            return(compare_mean_cyl_list[[i]])} 
+    
+  } else if (feature_category == "TP") {
+                           if (feature %in% unique(tp_features)){
+                            i <-which(feature == unique(tp_features))
+                            return(compare_mean_tp_list[[i]])}   
+  } else {
+    return()
+  }
+}
+
+feature_cate <- c("Diameter","Distance","Flatness","Cylindricity","TP")
+```
+
+
+```{r message=FALSE}
+#compare_means("Cylindricity", "C0009P0053_SC05_CYL")
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-pageWithSidebar(
+  
+  # Application title
+  headerPanel("Compare Features Across Features"),
+  
+  sidebarPanel(
+                    # data select
+                    uiOutput("choose_feature_cate"),
+                    
+                    uiOutput("choose_columns"),
+                    # variables select
+                    
+                    uiOutput("variable_select")
+                
+              ),
+  
+
+  mainPanel(
+                  plotOutput("plot3"),
+                  h3(textOutput("featureCate_select")),
+                  h3(textOutput("variables_select_value"))
+                  
+          )
+),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+    # data
+  
+  output$choose_feature_cate <- renderUI({
+    selectInput("feature_category", "Feature Category", as.list(feature_cate))
+  })
+  
+  output$featureCate_select <- renderText({
+    x <- input$feature_category
+    paste("The Feature Category is",x)
+  })
+  
+  # varible select
+  output$choose_columns <- renderUI({
+    # If missing input, return to avoid error later in function
+    if(is.null(input$feature_category))
+      return()
+    
+    # Get the variable category with the appropriate name
+    if(input$feature_category == "Diameter") {
+      colnames <- as.vector(unique(dia_features))
+    } else if (input$feature_category == "Distance"){
+      colnames <- as.vector(unique(dist_features)) 
+    }else if (input$feature_category == "Flatness"){
+      colnames <- as.vector(unique(flt_features)) 
+    }else if (input$feature_category == "Cylindricity"){
+      colnames <- as.vector(unique(cyl_features)) 
+    }else if (input$feature_category == "TP"){
+      colnames <- as.vector(unique(tp_features)) 
+    }else {
+      colnames <- as.vector(unique(dia_features))
+    }
+
+    
+    # Create the checkboxes and select them all by default
+    selectInput("columns", "Choose columns", 
+                choices  = colnames)
+  })
+  
+  output$variables_select_value <- renderText({
+    paste("The variables selected is",input$columns)
+  })
+  
+#compare_means("Cylindricity", "C0009P0053_SC05_CYL")
+   output$plot3 <- renderPlot({
+    compare_means(input$feature_category, input$columns)
+  }) 
+
+  
+})
+)
+```
+\  
+
+### Incident Analysis:
+
+* What are the worst performing features? 
+* How many times do they fail the tolerance capping? 
+* How badly do they fail when they fail it?
+* Is failing 20% times badly worse than 25% times at a medium level?
+* Are they outlier values? 
+* What is the significance level? 
+
+We answer all the above here by **Comparing Failure Proportions** at first:
+
+Product designers set specifications on parts and then process engineers focus on product parts to meet specifications. The ability of a process to meet specifications is called **process capability**.
+
+To know how well a process can meet specification and about the implications of being out of specification, we need to understand *which is worse, a specification which has failed 20% time very badly or a specification which has failed 25% less badly*. 
+
+For example, *being out of specification on a dimension might lead to immediately failure whereas being pretty far away from expected specification on another dimension might have almost no consequence if it is within the capping*. 
+
+We start our analysis, by focussing on the assumption that being out of specification on a dimension's tolerance range can lead to immediately failure. Hence for each dimension we see how many parts have observed out of bound measurement and count them to find the proportion of failures.
+
+A.) **Failure proportion of dimensions at fixtures levels**:
+
+```{r include=FALSE}
+compare_prop <- function (feature){
+## DIAMETERS:
+dia <- grep("_DIA", count_all_fixtures$feature)
+dia_features <- count_all_fixtures[dia,1]
+
+Compare_Prop_dia <-count_all_fixtures %>% mutate(percentage= fail/(fail+pass)) %>% 
+  filter(feature %in% dia_features) %>% 
+  ggplot(aes(x = feature, y = percentage, fill=fixture_type)) +
+  geom_bar(position="dodge", stat = "identity", width = 0.5,color= "black") +
+  scale_fill_brewer(palette="Greys") + theme_classic() +
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  xlab("Diameter Feature") + ylab("Proportion of Failures") 
+
+  
+  
+## DISTANCE:
+dist <- grep("DIS", count_all_fixtures$feature)
+dist_features <- count_all_fixtures[dist,1]
+
+Compare_Prop_dist <- count_all_fixtures %>% mutate(percentage= fail/(fail+pass)) %>% 
+  filter(feature %in% dist_features) %>% 
+  ggplot(aes(x = feature, y = percentage, fill=fixture_type)) +
+  geom_bar(position="dodge", stat = "identity", width = 0.5,color= "black") +
+  scale_fill_brewer(palette="Greys") + theme_classic() +
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  xlab("Distance Feature") + ylab("Proportion of Failures") 
+  
+  
+## PERPENDICULARITY (NA):
+perp <- grep("PERP", count_all_fixtures$feature)
+perp_features <- count_all_fixtures[perp,1]
+
+## FLATNESS: ALL within range: No Failure
+flt <- grep("_FLT", count_all_fixtures$feature)
+flt_features <- count_all_fixtures[flt,1]
+
+Compare_Prop_flt <- count_all_fixtures %>% mutate(percentage= fail/(fail+pass)) %>% 
+  filter(feature %in% flt_features) %>% 
+  ggplot(aes(x = feature, y = percentage, fill=fixture_type)) +
+  geom_bar(position="dodge", stat = "identity", width = 0.5,color= "black") +
+  scale_fill_brewer(palette="Greys") + theme_classic() +
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  xlab("Flatness Feature") + ylab("Proportion of Failure") 
+  
+## CYLINDER: 
+cyl <- grep("CYL", count_F11$feature)
+cyl_features <- count_F11[cyl,1]
+
+Compare_Prop_cyl <- count_all_fixtures %>% mutate(percentage= fail/(fail+pass)) %>% 
+  filter(feature %in% cyl_features) %>% 
+  ggplot(aes(x = feature, y = percentage, fill=fixture_type)) +
+  geom_bar(position="dodge", stat = "identity", width = 0.5,color= "black") +
+  scale_fill_brewer(palette="Greys") + theme_classic() +
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  xlab("Cylindricity Feature") + ylab("Proportion of Failure") 
+
+
+## TP:
+tp1 <- grep("_TP", count_F11$feature)
+tp1_features <- count_F11[tp1,1]
+
+tp2 <- grep("_TP_", count_F11$feature)
+tp2_features <- count_F11[tp2,1]
+
+tp <- tp1[is.na(pmatch(tp1,tp2))]
+tp_features <- count_F11[tp,1]
+
+Compare_Prop_tp <-  count_all_fixtures %>% mutate(percentage= fail/(fail+pass)) %>% 
+  filter(feature %in% tp_features) %>% 
+  ggplot(aes(x = feature, y = percentage, fill=fixture_type)) +
+  geom_bar(position="dodge", stat = "identity", width = 0.5,color= "black") +
+  scale_fill_brewer(palette="Greys") + theme_classic() +
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  xlab("TP Feature") + ylab("Proportion of Failure") 
+
+  if (feature == "Diameter"){
+    return(Compare_Prop_dia)
+  } else if (feature == "Distance"){
+    return(Compare_Prop_dist)
+  } else if (feature == "Flatness") {
+    return(Compare_Prop_flt)
+  } else if (feature == "Cylindricity") {
+    return(Compare_Prop_cyl)
+  } else (
+    return(Compare_Prop_tp)
+  )
+}
+ 
+```
+
+
+```{r}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-pageWithSidebar(
+  
+  # Application title
+  headerPanel("Compare Features Across Fixtures"),
+  
+  sidebarPanel(
+                selectInput("feature", 
+                            "Choose a feature:", 
+                            choices = c("Diameter", "Distance","Flatness", "Cylindricity", "TP")
+                )
+              ),
+  
+
+  mainPanel(
+                verbatimTextOutput("PLOT"),
+                plotOutput("plot2")
+          )
+),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+  output$plot2 <- renderPlot({
+    compare_prop(input$feature)
+  })
+  
+}),
+  
+options = list(height = 500) 
+  
+)
+```
+\  
+
+**Worst performing features compared to individual tolerances**.
+
+
+1.) **Diameters**: 
+
+*C0009DF073_SC07_DIA* (D71, D72 being the highest), *C0009DQ001_SC16_DIA_1*(D72,D73 being the highest), *C0009DQ002_SC16_DIA_2*(D72,D73 being the highest) on an average have around 0.5 proportion of failures (50%) across the fixtures and we see a concern.
+
+On the otherhand, *C0009DB011_SC01_DIA* has  the least incidents. *C0009DC021_SC03_DIA* and *C0009P0051_SC05_DIA* also have a very few failure occurences.
+
+The remaining, which are: *C0009DE083_SC08_DIA* and *C0009PD091_SC09_DIA* have incidents occuring at a medium level amongst the diameter feature, though they occur at around 20% rate.
+
+
+
+2.) **Distance**:
+
+Among Distance features, the maximum incident occurs for *S0009P0101_SC10_DIST*, however it is only around 15% instances unlike the maximum case of diameter feature. The remaing distance features have less than 10% failures, the lowest being for: *S0009P0061_SC06_DIST*
+
+
+
+3.) **Flatness**: 
+
+This features seems to perform well in this sample and all measurements are within the tolerance limit.
+
+
+
+4.) **Cylindricity**: 
+
+The only feature describing cylindricity is *C0009P0053_SC05_CYL*. It has rate on an average of 40%. The incidents happen most often is Fixture F13, followed by F11, F12, D71, D72,D73 (21% approx).
+
+
+
+5.) **TP / position**: 
+
+The failure incidents in this feauture category, spans over a wide range, from less than 10 percent to over 80%. *C0009P0051__3_SC05_TP* has a very high rate of around 80% in case of F13, however as low as 10% in case of D72. 
+The average rate for *C0009DQ001__3_SC16_TP* is also around 50%, highest being in D72, over 60% and round 40% across remaing fixture types.
+
+While on the other hand, *C0009DF073__3_SC07_TP* has all less than 10% incident rate across all features. *C0009P0138__2_SC14_TP* on an average has 15% incidents across all fixtures which again low. *C0009DC022__2_SC02_TP* has around 10% in  D72, D73 but as high as 50% in F11, thus comes with an overall medium rate of failures across all features.
+
+
+
+B.) **Failure proportion of dimensions at machine levels**:
+
+```{r include=FALSE}
+count_all_machines <- rbind(count_M13, count_M15)
+compare_prop_machines <- function (feature){
+## DIAMETERS:
+
+Compare_Prop_dia2 <-count_all_machines %>% mutate(percentage= fail/(fail+pass)) %>% 
+  filter(feature %in% dia_features) %>% 
+  ggplot(aes(x = feature, y = percentage, fill=fixture_type)) +
+  geom_bar(position="dodge", stat = "identity", width = 0.5,color= "black") +
+  scale_fill_brewer(palette="Greys") + theme_classic() +
+  geom_text(aes(label = round(percentage,2)), 
+          position=position_dodge(width=0.4),vjust = 0.001)+     
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  xlab("Diameter Feature") + ylab("Proportion of Failures") 
+
+  
+  
+## DISTANCE:
+
+Compare_Prop_dist2 <- count_all_machines %>% mutate(percentage= fail/(fail+pass)) %>% 
+  filter(feature %in% dist_features) %>% 
+  ggplot(aes(x = feature, y = percentage, fill=fixture_type)) +
+  geom_bar(position="dodge", stat = "identity", width = 0.5,color= "black") +
+  scale_fill_brewer(palette="Greys") + theme_classic() +
+  geom_text(aes(label = round(percentage,2)), 
+          position=position_dodge(width=0.4),vjust = 0.001)+     
+  theme_classic() +      
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  xlab("Distance Feature") + ylab("Proportion of Failures") 
+  
+  
+## PERPENDICULARITY (NA):
+
+
+## FLATNESS: ALL within range: No Failure
+ Compare_Prop_flt2 <- count_all_fixtures %>% mutate(percentage= fail/(fail+pass)) %>% 
+  filter(feature %in% flt_features) %>% 
+  ggplot(aes(x = feature, y = percentage, fill=fixture_type)) +
+  geom_bar(position="dodge", stat = "identity", width = 0.5,color= "black") +
+  scale_fill_brewer(palette="Greys") + theme_classic() +
+  geom_text(aes(label = round(percentage,2)), 
+          position=position_dodge(width=0.4),vjust = 0.001)+        
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  xlab("Flatness Feature") + ylab("Proportion of Failure")  
+  
+## CYLINDER: 
+
+Compare_Prop_cyl2 <- count_all_machines %>% mutate(percentage= fail/(fail+pass)) %>% 
+  filter(feature %in% cyl_features) %>% 
+  ggplot(aes(x = feature, y = percentage, fill=fixture_type)) +
+  geom_bar(position="dodge", stat = "identity", width = 0.5,color= "black") +
+  scale_fill_brewer(palette="Greys") + theme_classic() +
+  geom_text(aes(label = round(percentage,2)), 
+          position=position_dodge(width=0.4),vjust = 0.001)+     
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  xlab("Cylindricity Feature") + ylab("Proportion of Failure") 
+
+
+## TP:
+
+Compare_Prop_tp2 <-  count_all_machines %>% mutate(percentage= fail/(fail+pass)) %>% 
+  filter(feature %in% tp_features) %>% 
+  ggplot(aes(x = feature, y = percentage, fill=fixture_type)) +
+  geom_bar(position="dodge", stat = "identity", width = 0.5,color= "black") +
+  scale_fill_brewer(palette="Greys") + theme_classic() +
+  geom_text(aes(label = round(percentage,2)), 
+          position=position_dodge(width=0.4),vjust = 0.001)+     
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  xlab("TP Feature") + ylab("Proportion of Failure") 
+
+  if (feature == "Diameter"){
+    return(Compare_Prop_dia2)
+  } else if (feature == "Distance"){
+    return(Compare_Prop_dist2)
+  } else if (feature == "Flatness") {
+    return(Compare_Prop_flt2)
+  } else if (feature == "Cylindricity") {
+    return(Compare_Prop_cyl2)
+  } else (
+    return(Compare_Prop_tp2)
+  )
+}
+ 
+```
+
+
+```{r}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-pageWithSidebar(
+  
+  # Application title
+  headerPanel("Compare Features Across Machines"),
+  
+  sidebarPanel(
+                selectInput("feature", 
+                            "Choose a feature:", 
+                            choices = c("Diameter", "Distance", "Flatness","Cylindricity", "TP")
+                )
+              ),
+  
+
+  mainPanel(
+                verbatimTextOutput("PLOT"),
+                plotOutput("plotM")
+          )
+),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+  output$plotM <- renderPlot({
+    compare_prop_machines(input$feature)
+  })
+  
+}),
+  
+options = list(height = 500) 
+  
+)
+```
+
+\  
+
+The machine level analysis aligns with the fixture level analysis in terms of the features.
+
+C.) **Failure proportion of dimensions at aggregate level**:
+
+```{r include=FALSE}
+
+compare_prop_aggregate <- function (feature){
+  
+## DIAMETERS:
+
+Compare_Prop_dia3 <-count_all_machines %>% 
+  group_by(feature) %>% 
+  dplyr::summarize(percentage= sum(fail)/(sum(fail)+sum(pass))) %>% 
+  filter(feature %in% dia_features) %>% 
+  ggplot(aes(x = feature, y = percentage)) +
+  geom_bar(stat = "identity", width = 0.5,color= "black") +
+  theme_classic() +
+  geom_text(aes(label = round(percentage,2)),vjust=-0.5,size=3)+        
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  xlab("Diameter Feature") + ylab("Proportion of Failures") 
+  
+  #geom_hline(yintercept = mean(count_all_fixtures$percentage))+
+  #coord_cartesian(ylim = c(12000, 14500))+
+  
+  
+## DISTANCE:
+
+Compare_Prop_dist3 <- count_all_machines %>% 
+  group_by(feature) %>% 
+  dplyr::summarize(percentage= sum(fail)/(sum(fail)+sum(pass))) %>% 
+  filter(feature %in% dist_features) %>% 
+  ggplot(aes(x = feature, y = percentage)) +
+  geom_bar(stat = "identity", width = 0.5,color= "black") +
+  theme_classic() +
+  geom_text(aes(label = round(percentage,2)),vjust=-0.5,size=3)+        
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  xlab("Distance Feature") + ylab("Proportion of Failures") 
+  
+  
+## PERPENDICULARITY (NA):
+
+
+## FLATNESS: ALL within range: No Failure
+ Compare_Prop_flt3 <- count_all_fixtures %>%
+  group_by(feature) %>% 
+  dplyr::summarize(percentage= sum(fail)/(sum(fail)+sum(pass))) %>% 
+  filter(feature %in% flt_features) %>% 
+  ggplot(aes(x = feature, y = percentage)) +
+  geom_bar(stat = "identity", width = 0.5,color= "black") +
+  theme_classic() +
+  geom_text(aes(label = round(percentage,2)),vjust=-0.5,size=3)+        
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  xlab("Flatness Feature") + ylab("Proportion of Failure")  
+  
+## CYLINDER: 
+
+Compare_Prop_cyl3 <- count_all_machines %>% 
+  group_by(feature) %>% 
+  dplyr::summarize(percentage= sum(fail)/(sum(fail)+sum(pass))) %>% 
+  filter(feature %in% cyl_features) %>% 
+  ggplot(aes(x = feature, y = percentage)) +
+  geom_bar(stat = "identity", width = 0.5,color= "black") +
+  theme_classic() +
+  geom_text(aes(label = round(percentage,2)),vjust=-0.5,size=3)+        
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  xlab("Cylindricity Feature") + ylab("Proportion of Failure") 
+
+
+## TP:
+
+Compare_Prop_tp3 <-  count_all_machines %>% 
+  group_by(feature) %>% 
+  dplyr::summarize(percentage= sum(fail)/(sum(fail)+sum(pass))) %>% 
+  filter(feature %in% tp_features) %>% 
+  ggplot(aes(x = feature, y = percentage)) +
+  geom_bar(stat = "identity", width = 0.5,color= "black") +
+  theme_classic() +
+  geom_text(aes(label = round(percentage,2)),vjust=-0.5,size=3)+        
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  xlab("TP Feature") + ylab("Proportion of Failure") 
+
+  if (feature == "Diameter"){
+    return(Compare_Prop_dia3)
+  } else if (feature == "Distance"){
+    return(Compare_Prop_dist3)
+  } else if (feature == "Flatness") {
+    return(Compare_Prop_flt3)
+  } else if (feature == "Cylindricity") {
+    return(Compare_Prop_cyl3)
+  } else (
+    return(Compare_Prop_tp3)
+  )
+}
+ 
+```
+
+
+```{r}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-pageWithSidebar(
+  
+  # Application title
+  headerPanel("Compare Features for aggregate analysis"),
+  
+  sidebarPanel(
+                selectInput("feature", 
+                            "Choose a feature:", 
+                            choices = c("Diameter", "Distance", "Flatness","Cylindricity", "TP")
+                )
+              ),
+  
+
+  mainPanel(
+                verbatimTextOutput("PLOT"),
+                plotOutput("plot_aggre")
+          )
+),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+  output$plot_aggre <- renderPlot({
+    compare_prop_aggregate(input$feature)
+  })
+  
+}),
+  
+options = list(height = 500) 
+  
+)
+```
+
+\  
+
+
+**Coming to the aggregated analysis, we see the following trends**:
+
+1.) **Diameter**: 
+
+*C0009DF073_SC07_DIA* has a very high aggregate of 60%, followed by *C0009DQ001_SC16_DIA_1* (54%), *C0009DQ002_SC16_DIA_2* (49%). The lowest incidents are for *C0009DB011_SC01_DIA* (0%), *C0009DC021_SC03_DIA* (1%), *C0009P0051_SC05_DIA* (5%)
+
+
+
+2.) **Distance**:  
+
+Highest incident rates are for the following: *S0009P0101_SC10_DIST* (8%) > *S0009P0134_SC13_DIST_4* ~ *S0009P0132_SC13_DIST_2* ~ *S0009P0133_SC13_DIST_3* (5%)
+  
+Lowest is:*S0009P0061_SC06_DIST* almost 0% followed by *S0009P0111_SC10_DIST*, *S0009P0121_SC10_DIST*
+
+
+
+3.) **Flatness**: 
+
+Average failure incident rate is 0%.
+
+
+
+4.) **Cylindricity**:
+
+Average failure incident rate is *C0009P0053_SC05_CYL*(40%).
+
+
+
+5.) **TP**: 
+
+*C0009DQ001__3_SC16_TP* (44%) > *C0009P0051__3_SC05_TP* (31%)
+
+**Hence the features which are performing worst solely based on incidents of out of tolerance range are: **
+
+* **C0009DF073_SC07_DIA** (60%), 
+* **C0009DQ001_SC16_DIA_1** (54%), 
+* **C0009DQ002_SC16_DIA_2** (49%),
+* **C0009DQ001__3_SC16_TP** (44%),
+* **C0009P0053_SC05_CYL** (40%)
+* **C0009P0051__3_SC05_TP** (31%) 
+
+
+To know if failing 20 times badly is worse than 25% marginally, we dive deeper and see how bad have they performed.
+
+```{r include= FALSE}
+data_in_cap <- as.numeric(FIXD71[3,7:ncol(FIXD71)])
+
+feature_C0009DB011_SC01_DIA <-measures_D71 %>% subset(select="C0009DB011_SC01_DIA") %>% 
+                              mutate(flag_C0009DB011_SC01_DIA= ifelse(C0009DB011_SC01_DIA<data_in_cap[1] 
+                  & C0009DB011_SC01_DIA>-data_in_cap[1],1,0))
+
+feature_C0009DB011_SC01_DIA$mu <- mean(feature_C0009DB011_SC01_DIA[(feature_C0009DB011_SC01_DIA[,2]==1),1])
+feature_C0009DB011_SC01_DIA <-feature_C0009DB011_SC01_DIA %>% 
+                              mutate(test_statistic = (C0009DB011_SC01_DIA-mu)/(2*data_in_cap[1]), 
+                                     p_val=pnorm(test_statistic), is_far = ifelse(p_val<0.025 || p_val>0.975,0,1 ))
+
+
+
+## feature 2:
+feature_C0009P0051_SC05_DIA <-measures_D71 %>% subset(select="C0009P0051_SC05_DIA") %>% 
+                              mutate(flag_C0009P0051_SC05_DIA= ifelse(C0009P0051_SC05_DIA<data_in_cap[3] 
+                  & C0009P0051_SC05_DIA>-data_in_cap[3],1,0))
+
+feature_C0009P0051_SC05_DIA$mu <- mean(feature_C0009P0051_SC05_DIA[(feature_C0009P0051_SC05_DIA[,2]==1),1])
+feature_C0009P0051_SC05_DIA$sd <- sd(feature_C0009P0051_SC05_DIA[(feature_C0009P0051_SC05_DIA[,2]==1),1])
+
+feature_C0009P0051_SC05_DIA <-feature_C0009P0051_SC05_DIA %>% 
+                              mutate(z_score = (C0009P0051_SC05_DIA-mu)/(sd/sqrt(length(feature_C0009P0051_SC05_DIA[(feature_C0009P0051_SC05_DIA[,2]==1),1]))), 
+                                     p_val=pnorm(z_score))
+
+
+
+
+mu_vectorD71 <- colMeans(measures_D71[,1:ncol(measures_D71)-1])
+sd_vectorD71 <- sapply(measures_D71[,1:ncol(measures_D71)-1], sd, na.rm = T)
+
+mu_vectorD72 <- colMeans(measures_D72[,1:ncol(measures_D72)-1])
+sd_vectorD72 <- sapply(measures_D72[,1:ncol(measures_D72)-1], sd, na.rm = T)
+
+mu_vectorD73 <- colMeans(measures_D73[,1:ncol(measures_D73)-1])
+sd_vectorD73 <- sapply(measures_D73[,1:ncol(measures_D73)-1], sd, na.rm = T)
+
+mu_vectorF11 <- colMeans(measures_F11[,1:ncol(measures_F11)-1])
+sd_vectorF11 <- sapply(measures_F11[,1:ncol(measures_F11)-1], sd, na.rm = T)
+
+mu_vectorF12 <- colMeans(measures_F12[,1:ncol(measures_F12)-1])
+sd_vectorF12 <- sapply(measures_F12[,1:ncol(measures_F12)-1], sd, na.rm = T)
+
+mu_vectorF13 <- colMeans(measures_F13[,1:ncol(measures_F13)-1])
+sd_vectorF13 <- sapply(measures_F13[,1:ncol(measures_F13)-1], sd, na.rm = T)
+
+
+
+  myfunc_mean<-function(x,mu_vector){
+  for (i in x){
+    t= (x-mu_vector)}
+  return(t)
+  }
+  
+  myfunc_sd<-function(x,sd_vector){
+  for (i in x){
+    t= x/sd_vector}
+  return(t)
+  }
+  
+p_val_D71 <- data.frame(sweep(measures_D71[,1:ncol(measures_D71)-1], 2, mu_vectorD71,"myfunc_mean"))
+p_val_D71 <- data.frame(sweep(p_val_D71, 2, sd_vectorD71,"myfunc_sd"))
+p_val_D71 <- sapply(p_val_D71, abs)
+
+p_val_D72 <- data.frame(sweep(measures_D72 [,1:ncol(measures_D72)-1], 2, mu_vectorD72,"myfunc_mean"))
+p_val_D72 <- data.frame(sweep(p_val_D72, 2, sd_vectorD72,"myfunc_sd"))
+p_val_D72 <- sapply(p_val_D72, abs)
+
+p_val_D73 <- data.frame(sweep(measures_D73[,1:ncol(measures_D73)-1], 2, mu_vectorD73,"myfunc_mean"))
+p_val_D73 <- data.frame(sweep(p_val_D73, 2, sd_vectorD71,"myfunc_sd"))
+p_val_D73 <- sapply(p_val_D73, abs)
+
+p_val_F11 <- data.frame(sweep(measures_F11[,1:ncol(measures_F11)-1], 2, mu_vectorF11,"myfunc_mean"))
+p_val_F11 <- data.frame(sweep(p_val_F11, 2, sd_vectorF11,"myfunc_sd"))
+p_val_F11 <- sapply(p_val_F11, abs)
+
+p_val_F12 <- data.frame(sweep(measures_F12[,1:ncol(measures_F12)-1], 2, mu_vectorF12,"myfunc_mean"))
+p_val_F12 <- data.frame(sweep(p_val_F12, 2, sd_vectorF12,"myfunc_sd"))
+p_val_F12 <- sapply(p_val_F12, abs)
+
+p_val_F13 <- data.frame(sweep(measures_F13[,1:ncol(measures_F13)-1], 2, mu_vectorF13,"myfunc_mean"))
+p_val_F13 <- data.frame(sweep(p_val_F13, 2, sd_vectorF13,"myfunc_sd"))
+p_val_F13 <- sapply(p_val_F13, abs)
+
+
+```
+
+
+
+```{r include= FALSE}
+## given that an obs failed, find the degree or extent of failure by its standardized dist from mean. Assign score this purpose.
+
+tolerance_flag<-function(data_in){
+   # Rename columns
+  DI <- as.data.frame(data_in[5:nrow(data_in),])
+  colnames(DI)<- feauture_names
+  
+  #convert to numeric: ## check that it should not get rounded
+  cols = 7:ncol(DI);    
+  DI[,cols] = apply(DI[,cols], 2, function(x) as.numeric(as.character(x)))
+  
+  ## Next Part
+  myfunc<-function(x,data_in_cap){
+  for (i in x){t= (x<data_in_cap) & (x> -data_in_cap)}
+  return(t)
+  }
+  
+  data_in_cap <- as.numeric(data_in[3,7:ncol(data_in)])
+  flag_data_in <- data.frame(sweep(DI[,7:ncol(DI)], 2, data_in_cap, "myfunc"))
+  
+  flagcols = 1:ncol(flag_data_in);    
+  flag_out = apply(flag_data_in[,flagcols], 2, function(x) as.numeric(as.logical(!x)))
+  #all.equal(flag_D71,flag_D71_check)
+  
+  return(flag_out)
+}
+
+## Flag_Fail: Function Call
+tolFlag_D71<- tolerance_flag(data_in=FIXD71) 
+tolFlag_D72<- tolerance_flag(data_in=FIXD72)
+tolFlag_D73<- tolerance_flag(data_in=FIXD73) 
+tolFlag_F11<- tolerance_flag(data_in=FIXF11) 
+tolFlag_F12<- tolerance_flag(data_in=FIXF12) 
+tolFlag_F13<- tolerance_flag(data_in=FIXF13)
+tolFlag_F13<- tolFlag_F13[1:133,] ##133 to 149 are NA values
+
+
+## dot product of flag and p value of how different:
+dot_D71 <- as.data.frame(tolFlag_D71 * p_val_D71 )
+dot_D72 <- as.data.frame(tolFlag_D72 * p_val_D72 )
+dot_D73 <- as.data.frame(tolFlag_D73 * p_val_D73 )
+dot_F11 <- as.data.frame(tolFlag_F11 * p_val_F11 )
+dot_F12 <- as.data.frame(tolFlag_F12 * p_val_F12 )
+dot_F13 <- as.data.frame(tolFlag_F13 * p_val_F13 )
+
+score_D71 <- as.numeric(colSums(dot_D71))
+score_D72 <- as.numeric(colSums(dot_D72))
+score_D73 <- as.numeric(colSums(dot_D73))
+score_F11 <- as.numeric(colSums(dot_F11))
+score_F12 <- as.numeric(colSums(dot_F12))
+score_F13 <- as.numeric(colSums(dot_F13))
+
+score_board <-data.frame() %>% rbind(score_D71,score_D72,score_D73,score_F11,score_F12,score_F13) %>% as.data.frame() 
+colnames(score_board)<-colnames(dot_D71)
+
+score_board$fixture_cate <- c("score_D71","score_D72","score_D73","score_F11","score_F12","score_F13")
+#reorder
+score_board <- score_board[c(50, 1:49)]
+
+feature_issue_score <- data.frame(colnames(dot_D71), as.numeric(colSums(score_board[2:50])))
+colnames(feature_issue_score) <- c("feature", "score")
+```
+
+
+
+```{r}
+# Visualize feature wise scores:
+ggplot(data=feature_issue_score, aes(x=reorder(feature,-score), y=score)) +
+    geom_bar(stat="identity") + theme_classic()+ 
+    geom_text(aes(label = round(score,2)),size=2.4, vjust=-0.75,angle=45)+   
+  geom_hline(yintercept = mean(feature_issue_score$score))+
+  theme(axis.text = element_text(angle = 90,hjust=1,size = 8))+
+  xlab(" Part Feature") + ylab("Score of Failure") 
+```
+
+\  
+
+**The above score based ranks aligns exactly with the top 5 and bottom 5:
+Top 5 extent/ degree/ score of failure**:
+
+* **C0009DF073_SC07_DIA** (60%),485 
+* **C0009DQ001_SC16_DIA_1** (54%),332
+* **C0009DQ002_SC16_DIA_2** (49%),324
+* **C0009DQ001__3_SC16_TP** (44%),282
+* **C0009P0053_SC05_CYL** (40%),252
+
+We can note here again that **Flatness indices** does not have failure in terms of tolerance and are the bottom 5, along with **S0009P0061_SC06_DIST** which is 0
+
+
+**FEATURE SCORE BOARD ACROSS FIXTURES**:
+
+```{r include = FALSE}
+score_board_trans<-as.data.frame(t(score_board))
+rownames(score_board_trans)<-1:nrow(score_board_trans)
+score_board_trans <- score_board_trans[-1, ]
+colnames(score_board_trans)<-c("score_D71","score_D72","score_D73","score_F11","score_F12","score_F13")
+
+score_board_trans$feature_names <- as.factor(feature_issue_score$feature)
+score_board_trans<-score_board_trans[, c(7,1:6)]
+rownames(score_board_trans)<-1:nrow(score_board_trans)
+score_board_gather<-gather(score_board_trans, "fixture_score","points",2:7)
+
+# Diameter:
+score_dia <- score_board_gather %>%  
+  filter(feature_names %in% dia_features) %>% 
+  ggplot(aes(x = feature_names, y = round(as.numeric(points,2)), fill=fixture_score)) +
+  geom_bar(position="dodge", stat = "identity", width = 0.5, color= "grey27") +
+  scale_fill_brewer(palette="Reds") +
+  #scale_fill_manual(values=c('deepskyblue4','darkcyan','cadetblue3','deepskyblue3','dodgerblue3','dodgerblue4')) +      
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  #coord_cartesian(ylim = c(0, 50))+
+  xlab("Diameter Features") + ylab("Extent of Failure") 
+
+# Distance:
+score_dist <-score_board_gather %>% 
+  filter(feature_names %in% dist_features) %>% 
+  ggplot(aes(x = feature_names, y = round(as.numeric(points,2)), fill=fixture_score)) +
+  geom_bar(position="dodge", stat = "identity", width = 0.5, color= "grey27") +
+  scale_fill_brewer(palette="Reds") +
+  #scale_fill_manual(values=c('deepskyblue4','darkcyan','cadetblue3','deepskyblue3','dodgerblue3','dodgerblue4')) +      
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  #coord_cartesian(ylim = c(0, 50))+
+  xlab("Distance Features") + ylab("Extent of Failure") 
+
+
+ # Flatness:
+  score_flt <-score_board_gather %>% 
+  filter(feature_names %in% flt_features) %>% 
+  ggplot(aes(x = feature_names, y = round(as.numeric(points,2)), fill=fixture_score)) +
+  geom_bar(position="dodge", stat = "identity", width = 0.5, color = "grey27") +
+  scale_fill_brewer(palette="Reds") +
+  #scale_fill_manual(values=c('deepskyblue4','darkcyan','cadetblue3','deepskyblue3','dodgerblue3','dodgerblue4')) +      
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  #coord_cartesian(ylim = c(0, 50))+
+  xlab("Flatness Features") + ylab("Extent of Failure")
+
+# Cylindricity:
+score_cyl <- score_board_gather %>% 
+  filter(feature_names %in% cyl_features) %>% 
+  ggplot(aes(x = feature_names, y = round(as.numeric(points,2)), fill=fixture_score)) +
+  geom_bar(position="dodge", stat = "identity", width = 0.5, color= "grey27") +
+  scale_fill_brewer(palette="Reds") +
+  #scale_fill_manual(values=c('deepskyblue4','darkcyan','cadetblue3','deepskyblue3','dodgerblue3','dodgerblue4')) +      
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  #coord_cartesian(ylim = c(0, 50))+
+  xlab("Cylindricity Feature") + ylab("Extent of Failure") 
+  
+
+ # TP:
+  score_tp <-score_board_gather %>% 
+  filter(feature_names %in% tp_features) %>% 
+  ggplot(aes(x = feature_names, y = round(as.numeric(points,2)), fill=fixture_score)) +
+  geom_bar(position="dodge", stat = "identity", width = 0.5, color = "grey27") +
+  scale_fill_brewer(palette="Reds") +
+  #scale_fill_manual(values=c('deepskyblue4','darkcyan','cadetblue3','deepskyblue3','dodgerblue3','dodgerblue4')) +      
+  theme_classic() +
+  theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+  #coord_cartesian(ylim = c(0, 50))+
+  xlab("Positioning Features") + ylab("Extent of Failure")
+
+```
+\  
+
+The above figures were at aggregate level. Fixture wise score would give us an idea at a granular level:
+
+```{r include= FALSE}
+compare_scores <- function(feature_category){
+  
+  if (feature_category == "Diameter") {
+                            return(score_dia)
+                            
+  }  else if (feature_category == "Distance") {
+                            return(score_dist)
+    
+  } else if (feature_category == "Flatness"){
+                            return(score_flt)
+    
+  } else if (feature_category == "Cylindricity") {
+                            return(score_cyl)
+    
+  } else if (feature_category == "TP") {
+                            return(score_tp)
+    
+  } else {
+    return()
+  }
+}
+
+```
+
+
+```{r}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-pageWithSidebar(
+  
+  # Application title
+  headerPanel("Compare Features Across Features"),
+  
+  sidebarPanel(
+                selectInput("feature", 
+                            "Choose a feature:", 
+                            choices = c("Diameter", "Distance", "Flatness", "Cylindricity", "TP")
+                )
+              ),
+  
+
+  mainPanel(
+                verbatimTextOutput("PLOT"),
+                plotOutput("plot4")
+          )
+),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+  output$plot4 <- renderPlot({
+    compare_scores(input$feature)
+  })
+  
+}),
+  
+options = list(height = 500) 
+  
+)
+```
+
+
+### Feature Analysis:
+
+At first we will have a visual glance to absorb some of the differences:
+
+```{r}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-pageWithSidebar(
+  
+  # Application title
+  headerPanel("Distribution Comparison"),
+  
+  sidebarPanel(
+                selectInput("fixture", 
+                            "Choose a fixture:", 
+                            choices = list("FIXTURE_D71", 
+                                        "FIXTURE_D72", 
+                                        "FIXTURE_D73",
+                                        "FIXTURE_F11",
+                                        "FIXTURE_F12",
+                                        "FIXTURE_F13"
+                                        ),
+                            selected = list("FIXTURE_D72","FIXTURE_F12"),
+                            multiple = TRUE
+                            ),
+                selectInput("feature", 
+                            "Choose a feature:", 
+                            choices = colnames(measurement_all[,2:50]),
+                            selected = "C0009DE083_SC08_DIA"
+                ),
+
+                  sliderInput(
+                    "range", 
+                    label = "Range:", 
+                    min = -0.5, 
+                    max = 0.5, 
+                    value = c(-0.006, 0.025),
+                    step = 0.001
+                    )
+              ),
+  
+
+  mainPanel(
+                h6(textOutput("multiple_fixture")),
+                plotOutput("plot_dist")
+          )
+),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+    output$multiple_fixture <- renderText({
+    x <- input$fixture
+    paste("Comparison of Distribution of ", input$feature, " across ",
+          paste(as.character(x), collapse = ", "))
+  })
+  
+  output$plot_dist <- renderPlot({
+    distribution_comparison(fixture_list= as.character(input$fixture),
+                        feature=input$feature,
+                        input_range = as.numeric(c(input[["range"]][1],
+                                                   input[["range"]][2]))
+                        )
+  })
+  
+}),
+  
+options = list(height = 500) 
+  
+)
+
+```
+\  
+
+We next visulize compare their means and standard deviations through the below plot:
+
+```{r}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-pageWithSidebar(
+  
+  # Application title
+  headerPanel("Compare Features Across Features"),
+  
+  sidebarPanel(
+                    # data select
+                    uiOutput("choose_feature_cate"),
+                    
+                    uiOutput("choose_columns"),
+                    # variables select
+                    
+                    uiOutput("variable_select")
+                
+              ),
+  
+
+  mainPanel(
+                  plotOutput("plot3"),
+                  h3(textOutput("featureCate_select")),
+                  h3(textOutput("variables_select_value"))
+                  
+          )
+),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+    # data
+  
+  output$choose_feature_cate <- renderUI({
+    selectInput("feature_category", "Feature Category", as.list(feature_cate))
+  })
+  
+  output$featureCate_select <- renderText({
+    x <- input$feature_category
+    paste("The Feature Category is",x)
+  })
+  
+  # varible select
+  output$choose_columns <- renderUI({
+    # If missing input, return to avoid error later in function
+    if(is.null(input$feature_category))
+      return()
+    
+    # Get the data set with the appropriate name
+    if(input$feature_category == "Diameter") {
+      colnames <- as.vector(unique(dia_features))
+    } else if (input$feature_category == "Distance"){
+      colnames <- as.vector(unique(dist_features)) 
+    }else if (input$feature_category == "Flatness"){
+      colnames <- as.vector(unique(flt_features)) 
+    }else if (input$feature_category == "Cylindricity"){
+      colnames <- as.vector(unique(cyl_features)) 
+    }else if (input$feature_category == "TP"){
+      colnames <- as.vector(unique(tp_features)) 
+    }else {
+      return()
+    }
+
+    
+  # Create the checkboxes and select them all by default
+  selectInput("columns", "Choose columns", 
+              choices  = colnames)
+  })
+  
+  output$variables_select_value <- renderText({
+    paste("The variables selected is",input$columns)
+  })
+  
+#compare_means("Cylindricity", "C0009P0053_SC05_CYL")
+   output$plot3 <- renderPlot({
+    compare_means(input$feature_category, input$columns)
+  }) 
+
+  
+})
+)
+```
+
+\  
+
+With this we complete visual analysis of differences of features across fixture types.  
+
+
+#### Features with largest difference between fixtures:
+
+In order to quantify the differences, we would assess the *p-value* of each feature and compare it among fixture types. Hence we perform the **test static** to get the p-value.  
+
+If **p value is > 0.05**, we fail to reject the null that the distribution of a feature across two fixture types are similar. On the other hand if the **p value is < 0.05**, it is significant enough to reject the null that both measurement samples are drawn from the same distribution, or rather we can say that we have evidence that the given measurement distribution of that feature is different for different fixture types.
+
+To proceed with this, we develop fixture pairwise *p-value matrix* and represent the level of significance through a heatmap. The more different the distributions, we have more significant difference in the distribution and henceforth **darker shade of grey to represent this pair in the heatmap**.
+
+```{r include = FALSE}
+fixture <-c("D71", "D72", "D73","F11","F12","F13")
+
+t_test_func <- function(x,y){
+  t <- t.test(x, y, alternative = c("two.sided"),  
+        paired = FALSE, var.equal = FALSE, conf.level = 0.95)
+  return(t$p.value)
+}
+
+# Get upper triangle of the correlation matrix
+  get_upper_tri<-function(cormat){
+    cormat[upper.tri(cormat)] <- NA
+    return(cormat)
+  }
+
+## use ks.test()
+
+
+# generalize:
+datalist = list()
+datalist_gather = list()
+for(k in 1:49){
+  diff <- data.frame(matrix(rep(0,6*6), 6, 6))
+  
+  for(j in 1:6){
+    if(j==1){
+      df1<-measures_D71
+    } else if (j==2) {
+      df1<- measures_D72
+    } else if (j==3) {
+      df1<- measures_D73
+    }else if (j==4) {
+      df1<- measures_F11
+    }else if (j==5) {
+      df1<- measures_F12
+    }else {
+      df1<- measures_F13
+    }
+  
+  for(i in 1:6){
+        if(i==1){
+        df2<-measures_D71
+      } else if (i==2) {
+        df2<- measures_D72
+      } else if (i==3) {
+        df2<- measures_D73
+      }else if (i==4) {
+        df2<- measures_F11
+      }else if (i==5) {
+        df2<- measures_F12
+      }else {
+        df2<- measures_F13
+      }
+    diff[i,j] <- round(t_test_func(df1[,k], df2[,k]),4)
+  }
+}
+ diff$number <- k
+ colnames(diff)<-c(fixture,"feature_number")
+ rownames(diff)<-fixture
+ datalist[[k]] <- diff
+ datalist_gather[[k]]<-get_upper_tri(datalist[[k]]) %>% mutate(fixture1=fixture) %>% gather("fixture2", "p_value",1:6,na.rm = TRUE)
+}
+```
+
+
+**HEATMAP**:
+
+```{r include = FALSE}
+feature_var <- colnames(measures_D71[,1:49])
+p_data <-list()
+
+for(k in 1:49){
+ p_data[[k]]<-ggplot(data = datalist_gather[[k]], aes(x = fixture1, y = fixture2)) +
+  geom_tile(aes(fill = p_value))+
+    scale_fill_gradient2(low = "grey37", high = "grey97", mid = "grey57", ## low p value mean high significance thus darker
+   midpoint = 0.5, limit = c(0,1), space = "Lab", 
+    name="t-test p value") +
+  ylab("Fixture 1") +
+  xlab("Fixture 2") + theme_minimal()+
+  theme(legend.title = element_text(size = 10),
+        legend.text = element_text(size = 12),
+        plot.title = element_text(size=16),
+        axis.title=element_text(size=14,face="bold"),
+        axis.text.x = element_text(angle = 0, hjust = 1)) + 
+   geom_text(aes(fixture1, fixture2, label = p_value), color = "black", size = 4) +
+     labs(fill = "t-test p value", size = 4) +
+theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.border = element_blank(),
+  panel.background = element_blank(),
+  axis.ticks = element_blank(),
+  legend.justification = c(1, 0),
+  legend.position = c(0.4, 0.7),
+  legend.direction = "horizontal")+
+  guides(fill = guide_colorbar(barwidth = 10, barheight = 1,
+                title.position = "top", title.hjust = 0.5)) +
+   ggtitle(paste0("Degree of difference in measurement of ", feature_var[k]," across fixtures"))
+}
+
+```
+
+```{r include = FALSE}
+fixture_diff <- function(feature_variable) {
+  i <-which(feature_variable == feature_var)
+  return( p_data[[i]])
+}
+```
+
+
+
+```{r}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-pageWithSidebar(
+  
+  # Application title
+  headerPanel("How different are the features across features"),
+  
+  sidebarPanel(
+                selectInput("feature", 
+                            "Choose a feature:", 
+                            choices = feature_var
+                )
+              ),
+  
+
+  mainPanel(
+                verbatimTextOutput("Compare difference across features"),
+                plotOutput("plot6")
+          )
+),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+  output$plot6 <- renderPlot({
+    fixture_diff(input$feature)
+  })
+  
+}),
+  
+options = list(height = 500) 
+  
+)
+```
+
+\  
+
+After seeing the visualization, we would select the pairs that have significant difference for each pair:
+```{r}
+output <-list()
+for (k in 1:49){
+  temp_frame <- as.data.frame(datalist_gather[[k]])
+  temp_frame$flag <- ifelse(temp_frame$p_value<=0.05,1,0)
+  output[[k]] <-(temp_frame[which(temp_frame$flag==1),c(2,3,4)])
+}
+
+dimensions_list <- colnames(measures_D71[,-50]) ## list of dimensional features
+
+diff_fixture_table <- function(feature){
+  index <- which(feature==dimensions_list)
+  return(output[[index]])
+}
+
+# check <-diff_fixture_table("S0009DA001_PLN_A_FLT")
+# nrow(check)
+```
+
+
+```{r}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-pageWithSidebar(
+  
+  # Application title
+  headerPanel("How different are the features across fixtures"),
+  
+  sidebarPanel(
+                selectInput("feature", 
+                            "Choose a feature:", 
+                            choices = feature_var
+                )
+              ),
+  
+
+  mainPanel(
+                tableOutput("table")
+          )
+),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+  output$table <- renderTable({
+    diff_fixture_table(input$feature)
+  })
+  
+}),
+  
+options = list(height = 500) 
+  
+)
+```
+
+
+```{r}
+output_all <- data.frame()
+for (index in 1:49){
+  temp_data <- output[[index]] %>% as.data.frame()
+  
+  if (index == 1 & (nrow(temp_data) !=0) ) {
+    temp_data$index <- index
+    output_all <-temp_data
+  } else if ((nrow(temp_data) !=0) ){
+    temp_data$index <- index
+    output_all <-rbind(output_all,temp_data)
+  }  
+}
+
+most_different <- output_all %>% arrange(p_value) %>% mutate(feature=feature_var[index])
+
+most_different[(most_different$p_value==0), c(1,2,5)]
+```
+
+\  
+
+With this we move ahead to analysis/ comparison at machine level.
+
+
+#### Features with largest difference between machines:
+
+The first step would be to visually compare the mean and the standard deviation of each feature across Machine 13 and machine 15.
+
+```{r include= FALSE}
+measurement_all_machines <- rbind(measures_M13, measures_M15)
+
+
+machine_summary_list <- list()
+i<-1
+for (var in colnames(measurement_all_machines[,1:49])){
+  machine_summary_list[[i]] <- data_summary(measurement_all_machines, varname=var, 
+                    groupnames=c("fixture_batch")) 
+  i<-i+1
+}
+
+
+machine_var <- colnames(measurement_all_machines[,1:49])
+m_data <- list()
+i<- 1
+for (var in machine_var){
+  data <-machine_summary_list[[i]]
+  colnames(data) <- c("machine_batch","feature_MEASURE","sd")
+  m_data[[i]]<- ggplot(data,aes(x=machine_batch, y=feature_MEASURE, fill=machine_batch)) + 
+      geom_bar(stat="identity", color="black", 
+      position=position_dodge()) +
+      geom_errorbar(aes(ymin=feature_MEASURE-sd, ymax=feature_MEASURE+sd), width=.2,
+                 position=position_dodge(.9)) +
+      geom_hline(yintercept = 0)+
+      labs(title= paste0("Mean & Standard Deviation across feature ",var), x="Machine batch", y = "Measurement")+
+      theme_classic() + 
+      theme(axis.text = element_text(angle = 45,hjust=1,size = 8))+
+      scale_fill_brewer(palette="Greys")
+  i<-i+1
+}
+
+```
+
+
+
+
+```{r include = FALSE}
+machine_diff <- function(feature_variable) {
+  i <-which(feature_variable == machine_var)
+  return( m_data[[i]])
+}
+```
+
+
+```{r}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-pageWithSidebar(
+  
+  # Application title
+  headerPanel("How different are the features across features"),
+  
+  sidebarPanel(
+                selectInput("feature", 
+                            "Choose a feature:", 
+                            choices = machine_var
+                )
+              ),
+  
+
+  mainPanel(
+                verbatimTextOutput("Compare difference across machines"),
+                plotOutput("plot7")
+          )
+),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+  output$plot7 <- renderPlot({
+    machine_diff(input$feature)
+  })
+  
+}),
+  
+options = list(height = 500) 
+  
+)
+```
+
+\  
+
+p value comparison for 49 features:
+```{r include=FALSE}
+Machine_diff <- data.frame(matrix(rep(0,49*6), 49, 6))
+colnames(Machine_diff)<-c("feature_name","mean_machine_13", "sd_machine_13", "mean_machine_15", "sd_machine_15", "p_value")
+
+Machine_diff$feature_name <- as.factor(colnames(measurement_all_machines[,1:49]))
+Machine_diff$mean_machine_13 <- round(as.numeric(colMeans(measures_M13[,1:49])),4)
+Machine_diff$mean_machine_15 <- round(as.numeric(colMeans(measures_M15[,1:49])),4)
+Machine_diff$sd_machine_13 <- sapply(measures_M13[,1:ncol(measures_M13)-1], sd, na.rm = T)
+Machine_diff$sd_machine_15 <- sapply(measures_M15[,1:ncol(measures_M15)-1], sd, na.rm = T)
+
+for(i in 1:49){
+ Machine_diff[i,6] <-round(t_test_func(measures_M13[,i], measures_M15[,i]),4)
+}
+
+# select the features which are significantly different p-value < 0.05:
+
+# Diameter features
+Machine_dia <-Machine_diff[,c(1,2,4,6)] %>% 
+              filter(feature_name %in% dia_features) %>% 
+              filter(p_value <= 0.05) %>% 
+              gather("Machine","Mean",2:3) %>%
+              ggplot(aes(x=feature_name, y=Mean, fill=Machine,group=Machine))+ 
+              geom_bar(stat="identity", color="black", 
+                      position=position_dodge(), 
+                      width=0.3) + 
+              theme_minimal() + geom_hline(yintercept = 0)+
+              theme(axis.text = element_text(angle = 45,hjust=1,size = 8)) +
+              scale_fill_manual(values=c('red3','salmon'))+
+  labs(title="Compare Means between Machines for Diameters difference with significant p-value", 
+       x="Diameter Features", y = "Mean value of Measurement") 
+
+# Distance features
+Machine_dist <- Machine_diff[,c(1,2,4,6)] %>% 
+                filter(feature_name %in% dist_features ) %>%
+                filter(p_value <= 0.05 ) %>% 
+                gather("Machine","Mean",2:3) %>%
+                ggplot(aes(x=feature_name, y=Mean, fill=Machine,group=Machine))+ 
+                geom_bar(stat="identity", color="black", 
+                         position=position_dodge(), width=0.3) + 
+                theme_minimal() + geom_hline(yintercept = 0)+
+                theme(axis.text = element_text(angle = 45,hjust=1,size = 8)) + 
+                scale_fill_manual(values=c('red3','salmon'))+
+                labs(title="Compare Means between Machines for Distance difference with significant p-value", 
+                     x="Distance Features", y = "Mean value of Measurement")
+  
+  
+# Flatness feautures
+Machine_flt <-Machine_diff[,c(1,2,4,6)] %>% 
+              filter(feature_name %in% flt_features) %>%
+              filter(p_value <= 0.05) %>% 
+              gather("Machine","Mean",2:3) %>%
+              ggplot(aes(x=feature_name, y=Mean, fill=Machine,group=Machine))+ geom_bar(stat="identity", color="black", 
+                      position=position_dodge(), width=0.3) + theme_minimal() + geom_hline(yintercept = 0)+
+              theme(axis.text = element_text(angle = 45,hjust=1,size = 8)) +scale_fill_manual(values=c('red3','salmon'))+
+              labs(title="Compare Means between Machines for Flatness difference with significant p-value", 
+                   x="Flatness Features", y = "Mean value of Measurement")
+
+# cylindricity feautures
+Machine_cyl <-Machine_diff[,c(1,2,4,6)] %>% 
+              filter(feature_name %in% cyl_features ) %>%
+              filter(p_value <= 0.05) %>% 
+              gather("Machine","Mean",2:3) %>%
+              ggplot(aes(x=feature_name, y=Mean, fill=Machine,group=Machine))+ geom_bar(stat="identity", color="black", 
+              position=position_dodge(), width=0.3) + theme_minimal() + geom_hline(yintercept = 0)+
+              theme(axis.text = element_text(angle = 45,hjust=1,size = 8)) +scale_fill_manual(values=c('red3','salmon'))+
+              labs(title="Compare Means between Machines for Cylindricity difference with significant p-value",
+                  x="Cylindricity Features", y = "Mean value of Measurement")
+
+# TP feautures
+Machine_tp <- Machine_diff[,c(1,2,4,6)] %>% 
+              filter(feature_name %in% tp_features ) %>%
+              filter(p_value <= 0.05) %>% 
+              gather("Machine","Mean",2:3) %>%
+              ggplot(aes(x=feature_name, y=Mean, fill=Machine,group=Machine))+ geom_bar(stat="identity", color="black", 
+              position=position_dodge(), width=0.3) + theme_minimal() + geom_hline(yintercept = 0)+
+              theme(axis.text = element_text(angle = 45,hjust=1,size = 8)) +scale_fill_manual(values=c('red3','salmon'))+
+              labs(title="Compare Means between Machines for TP difference with significant p-value",
+                   x="TP Features", y = "Mean value of Measurement")
+```
+
+
+```{r include= FALSE}
+compare_machine_diff <- function(feature_category){
+  
+  if (feature_category == "Diameter") {
+                            return(Machine_dia)
+                            
+  }  else if (feature_category == "Distance") {
+                            return(Machine_dist)
+    
+  } else if (feature_category == "Flatness"){
+                            return(Machine_flt)
+    
+  } else if (feature_category == "Cylindricity") {
+                            return(Machine_cyl)
+    
+  } else if (feature_category == "TP") {
+                            return(Machine_tp)
+    
+  } else {
+    return()
+  }
+}
+
+```
+
+
+```{r}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-pageWithSidebar(
+  
+  # Application title
+  headerPanel("Compare Means across Machines if p value <0.05"),
+  
+  sidebarPanel(
+                selectInput("feature", 
+                            "Choose a feature:", 
+                            choices = c("Diameter", "Distance", "Flatness","Cylindricity", "TP")
+                )
+              ),
+  
+
+  mainPanel(
+                verbatimTextOutput("Compare significant differences across machines"),
+                plotOutput("plot7")
+          )
+),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+  output$plot7 <- renderPlot({
+    compare_machine_diff(input$feature)
+  })
+  
+}),
+  
+options = list(height = 500) 
+  
+)
+```
+
+\  
+
+Based on p value through test statistic, the following features are different across machines:
+
+1.) Diameter: C0009DB011_SC01_DIA,C0009DC021_SC03_DIA,C0009P0051_SC05_DIA,C0009DF073_SC07_DIA,
+              C0009DE083_SC08_DIA,C0009PD091_SC09_DIA,C0009DQ001_SC16_DIA_1,C0009DQ002_SC16_DIA_2
+              
+2.) Distance: S0009P0061_SC06_DIST,S0009P0101_SC10_DIST,S0009P0111_SC10_DIST,S0009P0121_SC10_DIST,
+              S0009P0131_SC13_DIST_1,S0009P0132_SC13_DIST_2,S0009P0133_SC13_DIST_3,S0009P0134_SC13_DIST_4,
+              S0009P0177_SC15_DIST
+              
+3.) Flatness : None
+
+4.) Cylindricity: C0009P0053_SC05_CYL
+
+5.) TP (position): C0009DC022__2_SC02_TP, C0009P0051__3_SC05_TP,C0009DF073__3_SC07_TP,C0009P0138__2_SC14_TP
+
+Often measurement of 3D bodies come with correlations and we look into it through the correlation matrix:
+
+Checking overall correlation between features:
+```{r include=FALSE}
+cormat <- round(cor(measurement_all_machines[,-50]),2)
+#head(cormat)
+
+
+library(reshape2)
+melted_cormat <- melt(cormat)
+#head(melted_cormat)
+
+# Get lower triangle of the correlation matrix
+  get_upper_tri<-function(cormat){
+    cormat[upper.tri(cormat)] <- NA
+    return(cormat)
+  }
+  # Get upper triangle of the correlation matrix
+  get_lower_tri <- function(cormat){
+    cormat[lower.tri(cormat)]<- NA
+    return(cormat)
+  }
+
+
+lower_tria <- get_lower_tri(cormat)
+melted_cormat <- melt(lower_tria, na.rm = TRUE)
+
+
+ggheatmap <- ggplot(melted_cormat, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "grey37", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+    name="Pearson\nCorrelation") +
+  theme_minimal()+ # minimal theme
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 6, hjust = 1))+
+ coord_fixed()
+```
+
+
+```{r}
+ggheatmap +
+#geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) +
+theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.border = element_blank(),
+  panel.background = element_blank(),
+  axis.ticks = element_blank(),
+  legend.justification = c(1, 0),
+  legend.position = c(0.7, 0.8),
+  legend.direction = "horizontal")+
+  guides(fill = guide_colorbar(barwidth = 4, barheight = 0.5,
+                title.position = "top", title.hjust = 0.5))
+```
+\  
+
+### Part Wise Analysis: 
+```{r include=FALSE}
+library(qdapRegex)
+
+M13_part <- M13 %>% mutate(Machine_type= "Machine_13")
+M15_part <- M15 %>% mutate(Machine_type= "Machine_15")
+Machine_All_Part <-rbind(M13_part,M15_part) %>% mutate(part_names = as.character(rm_between(Part_Desc, ":", ":", extract=TRUE)))
+
+Machine_All_Part <- Machine_All_Part[,c(1,57, 56, 2:55)]
+
+```
+
+
+```{r include=FALSE}
+# Flagging Pass as 1 , Fail as 0:
+  myfunc<-function(x,data_in_cap){
+  for (i in x){t= (x<data_in_cap) & (x> -data_in_cap)}
+  return(t)
+  }
+  Machine_All_Part_flag <- data.frame(sweep(Machine_All_Part[,9:ncol(Machine_All_Part)], 2, data_in_cap, "myfunc"))
+  
+  flagcols = 1:ncol(Machine_All_Part_flag);    
+  Machine_All_Part_flag[,flagcols] = apply(Machine_All_Part_flag[,flagcols], 2, function(x) as.numeric(as.logical(x)))
+  
+  # 2, 3, 5,6,8
+  Machine_All_Part_flag <- cbind(Machine_All_Part[,c(2,3,5,6,8)],Machine_All_Part_flag)
+
+  
+t_names <-colnames(Machine_All_Part_flag)
+library(dplyr)
+library(lazyeval)
+
+SummaryStatistics <- function(table, field){
+  temp <-table %>% group_by(Machine_type,part_names) %>%
+    dplyr::summarise_(
+              pass = interp(~sum(var, na.rm = T), var = as.name(field)),
+              fail = interp(~sum(!var, na.rm = T), var = as.name(field)),
+              avg_sucess = interp(~mean(var, na.rm = T)*100, var = as.name(field))
+              ) %>% mutate(avg_sucess = round(avg_sucess,2))
+  colnames(temp) = c("Machine_type", "part_names",paste0(t_names[i],"_pass"),paste0(t_names[i],"_fail"),paste0(t_names[i],"_avg_sucess"))
+  return(temp)
+}
+
+  for(i in 6:54){
+    temp <- SummaryStatistics(Machine_All_Part_flag, t_names[i])
+    if(i==6){
+    part_summary <-temp  
+    } else{
+    part_summary <- part_summary %>% left_join(temp, by = c("Machine_type","part_names"))  
+    }
+  }
+
+## run through from prev chunk till here at one go
+```
+
+
+
+```{r include=FALSE}
+## FAILURES:
+
+fail <- grep("_fail", colnames(part_summary))
+part_fail_summary <- part_summary[,c(1,2,fail)] 
+
+part_fail_summary$total_failures<-rowSums(part_fail_summary[3:51])
+#part_fail_summary<-part_fail_summary %>% 
+                     #arrange(desc(total_failures))
+                     
+# library(knitr)
+# knitr::kable(part_fail_summary[1:20,c(1,2,52)])
+part_fail_summary <- part_fail_summary[,c(1,2,52)]
+```
+
+
+```{r include=FALSE}
+# PASS:
+
+pass <- grep("_pass", colnames(part_summary))
+part_pass_summary <- part_summary[,c(1,2,pass)] 
+
+part_pass_summary$total_pass<-rowSums(part_pass_summary[3:51])
+#part_pass_summary<-part_pass_summary %>% 
+                     #arrange((total_pass))
+                     
+#library(knitr)
+#knitr::kable(part_fail_summary[1:20,c(1,2,52)])
+part_pass_summary <-part_pass_summary[,c(1,2,52)]
+```
+
+
+
+```{r include=FALSE}
+# AVG SUCCESS:
+rate <- grep("_avg_sucess", colnames(part_summary))
+part_rate_summary <- part_summary[,c(1,2,rate)] 
+
+part_rate_summary$total_rate<-rowSums(part_rate_summary[3:51])
+part_rate_summary <-part_rate_summary[,c(1,2,52)]
+```
+
+
+
+```{r}
+# COMBINE:
+part_aggregate <- part_fail_summary %>% left_join(part_pass_summary, by = c("Machine_type","part_names"))
+part_aggregate$failure_prop <-round(part_aggregate$total_failures/ (part_aggregate$total_failures + part_aggregate$total_pass),3)
+part_aggregate_top20_failures <- part_aggregate %>% arrange(desc(failure_prop)) %>% slice(1:20)
+part_aggregate_top20_failures
+```
+
+\  
+
+The above table displays the proportion of failures for each part group. From here we can say that worst performing parts are:
+
+1 RE_T15E0065177_F
+2 RE_T15E0065149_F
+3 RE_T15E0065179_F
+4 T15E0065216_F   
+5 05222015_1704_F
+
+
+The parts that are working most successfully are:
+```{r}
+part_aggregate_bottom20_failures <- part_aggregate %>% arrange((failure_prop)) %>% slice(1:20)
+part_aggregate_bottom20_failures
+```
+\  
+
+Parts with no failures are:
+ 
+ 1 0602_0100_D73_F
+ 2 T15E0065221_F  
+ 3 T15E0065235_F  
+ 4 T15E0065325_F  
+ 5 T15E0065329_F  
+ 6 T15E0065332_F  
+ 7 t15f0066032_F  
+ 8 T15F0066040_F  
+ 9 T15F0066042_F  
+10 T15F0066538_F
+
+
+ Some of the parts with minimal failures (2%) are:
+ 
+ 1 T15E0065355_F              
+ 2 T15E0065516_F              
+ 3 T15F0066532_F              
+ 4 T15F0066546_F              
+ 5 05292015_1601_F            
+ 6 05312015_0100_F13_MET2811_F
+ 7 RE_T15E0065503_F           
+ 8 T15E0065223_F              
+ 9 T15E0065239_F              
+10 T15E0065242_F 
+

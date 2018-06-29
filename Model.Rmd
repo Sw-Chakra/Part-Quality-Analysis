@@ -1,0 +1,528 @@
+---
+title: "Predictive Model for likelihood of Passing the Process Specifications"
+output: 
+  html_document:
+    df_print: paged
+    code_folding: hide
+    code_download: true 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## {.tabset .tabset-fade}
+
+### Model Building:
+
+```{r include=FALSE}
+### Data Processing:
+#Load libraries, clean data, modify columns (convert values to numeric) and rows as needed for analysis:
+library(qdapRegex)
+library(caret)
+library(caTools)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(knitr)
+library(stringr)
+library(lubridate)
+library(readxl)
+library(shiny)
+library(rsconnect)
+library(ggplot2)
+library(pROC)
+library(ROCR)
+```
+
+
+```{r include= FALSE}
+# read import data
+FIXD71 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-D71")
+FIXD72 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-D72")
+FIXD73 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-D73")
+FIXF11 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-F11")
+FIXF12 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-F12")
+FIXF13 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "FIXTURE-F13")
+FIXF13 <- FIXF13[1:137,]
+Machine13 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "MACHINE-13")
+Machine15 <- read_excel("data/Part-Data-Analysis[1].xlsx", sheet = "MACHINE-15")
+```
+
+
+```{r include=FALSE}
+## to check if the column features are same for all sheets
+(colnames(FIXD71)==colnames(FIXD72) & colnames(FIXD72)==colnames(FIXD73) & colnames(FIXD73)==colnames(FIXF11) & colnames(FIXF11)==colnames(FIXF12) & colnames(FIXF12)==colnames(FIXF13) & colnames(FIXF12)==colnames(Machine13) & colnames(Machine13)==colnames(Machine15))
+
+((FIXD71[1,])==(FIXD72[1,]) & (FIXD72[1,])==(FIXD73[1,]) & (FIXD73[1,])==(FIXF11[1,]) & (FIXF11[1,])==(FIXF12[1,]) & (FIXF12[1,])==(FIXF13[1,]) & (FIXF13[1,])==(Machine13[1,]) & (Machine13[1,])==(Machine15[1,]) )
+```
+
+
+```{r include=FALSE}
+feauture_names <- c(paste0(colnames(FIXD71),"_", FIXD71[1,])) 
+feauture_names[1:6]<- c("Part_Desc","Date","Status","Shift","Trim","Fixture_model")
+feauture_names <-gsub("-", "_",feauture_names)
+```
+
+
+```{r include= FALSE}
+# data pre processing function
+data_process<-function(data_in,text,flag){
+   # Rename columns
+  DI <- as.data.frame(data_in[5:nrow(data_in),])
+  colnames(DI)<- feauture_names
+  
+  #convert to numeric: ## check that it should not get rounded
+  cols = 7:ncol(DI);    
+  DI[,cols] = apply(DI[,cols], 2, function(x) as.numeric(as.character(x)))
+  
+  ## Next Part
+  myfunc<-function(x,data_in_cap){
+  for (i in x){t= (x<data_in_cap) & (x> -data_in_cap)}
+  return(t)
+  }
+  
+  data_in_cap <- as.numeric(data_in[3,7:ncol(data_in)])
+  flag_data_in <- data.frame(sweep(DI[,7:ncol(DI)], 2, data_in_cap, "myfunc"))
+  
+  flagcols = 1:ncol(flag_data_in);    
+  flag_data_in[,flagcols] = apply(flag_data_in[,flagcols], 2, function(x) as.numeric(as.logical(x)))
+  #all.equal(flag_D71,flag_D71_check)
+  
+  ## tabulate out of tolerance failure and passed obs againts all features
+  count_flag_data_in_pass <- colSums(flag_data_in)
+  count_flag_data_in_fail <- colSums(!flag_data_in)
+  count_flag_data_out <- data.frame(colnames(flag_data_in),count_flag_data_in_pass,count_flag_data_in_fail)
+  count_flag_data_out$fixture <- text
+  colnames(count_flag_data_out) <- c("feature","pass","fail","fixture_type")
+  
+  if (flag==1) {
+    return(flag_data_in)
+  }else {
+   return(count_flag_data_out) 
+  }
+}
+```
+
+
+```{r include= FALSE}
+#A) FIXD71 : function call to pre processing
+# Rename columns
+D71 <- as.data.frame(FIXD71[5:nrow(FIXD71),])
+colnames(D71)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(D71);    
+D71[,cols] = apply(D71[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_D71<- data_process(data_in=FIXD71, text = "FIXD71",flag=0) 
+```
+
+
+```{r include= FALSE}
+# B) FIXD72 : function call to pre processing
+# Rename columns
+D72 <- as.data.frame(FIXD72[5:nrow(FIXD72),])
+colnames(D72)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(D72);    
+D72[,cols] = apply(D72[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_D72<- data_process(data_in=FIXD72, text = "FIXD72",flag=0) 
+```
+
+
+
+```{r include= FALSE}
+#C) FIXD73 : function call to pre processing
+# Rename columns
+D73 <- as.data.frame(FIXD73[5:nrow(FIXD73),])
+colnames(D73)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(D73);    
+D73[,cols] = apply(D73[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_D73<- data_process(data_in=FIXD73, text = "FIXD73",flag=0) 
+```
+
+
+
+```{r include= FALSE}
+#D) FIXF11 : function call to pre processing
+# Rename columns
+F11 <- as.data.frame(FIXF11[5:nrow(FIXF11),])
+colnames(F11)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(F11);    
+F11[,cols] = apply(F11[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_F11<- data_process(data_in=FIXF11, text = "FIXF11",flag=0) 
+```
+
+
+
+```{r include= FALSE}
+# E) FIXF12 : function call to pre processing
+# Rename columns
+F12 <- as.data.frame(FIXF12[5:nrow(FIXF12),])
+colnames(F12)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(F12);    
+F12[,cols] = apply(F12[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_F12<- data_process(data_in=FIXF12, text = "FIXF12",flag=0) 
+```
+
+
+
+```{r include= FALSE}
+#F) FIXF13 : function call to pre processing
+#nrow(FIXF13) is 137, others NA values due to formatting
+# Rename columns
+F13 <- as.data.frame(FIXF13[5:nrow(FIXF13),])
+colnames(F13)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(F13);    
+F13[,cols] = apply(F13[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_F13<- data_process(data_in=FIXF13, text = "FIXF13",flag=0) 
+```
+
+
+
+```{r include= FALSE}
+# G) Machine13 : function call to pre processing
+# Rename columns
+M13 <- as.data.frame(Machine13[5:nrow(Machine13),])
+colnames(M13)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(M13);    
+M13[,cols] = apply(M13[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_M13<- data_process(data_in=Machine13, text = "Machine13",flag=0) 
+flag_M13 <- data_process(data_in=Machine13, text = "Machine13",flag=1)
+```
+
+
+
+```{r include= FALSE}
+#H) Machine15 : function call to pre processing
+# Rename columns
+M15 <- as.data.frame(Machine15[5:nrow(Machine15),])
+colnames(M15)<- feauture_names
+
+#convert to numeric: ## check that it should not get rounded
+cols = 7:ncol(M15);    
+M15[,cols] = apply(M15[,cols], 2, function(x) as.numeric(as.character(x)))
+
+count_M15<- data_process(data_in=Machine15, text = "Machine15",flag=0) 
+flag_M15 <- data_process(data_in=Machine15, text = "Machine15",flag=1)
+```
+
+
+
+```{r include=FALSE}
+flag_M13$Machine <- "Machine_13"
+flag_M15$Machine <- "Machine_15"
+
+flag_M13 <- flag_M13[c(50,1:49)]
+flag_M15 <- flag_M15[c(50,1:49)]
+
+
+flag_M13 <- cbind(M13[,1:6],flag_M13) %>% 
+            as.data.frame() %>% 
+            mutate(part_names = as.character(rm_between(Part_Desc, ":", ":", extract=TRUE)))
+
+flag_M15 <- cbind(M15[,1:6],flag_M15) %>% 
+            as.data.frame() %>% 
+            mutate(part_names = as.character(rm_between(Part_Desc, ":", ":", extract=TRUE)))
+
+flag_M13 <- flag_M13[c(1,57,2:56)]
+flag_M15 <- flag_M15[c(1,57,2:56)]
+```
+
+
+```{r include=FALSE}
+flag_M13_gather <-flag_M13 %>% gather("dimensional_feature","pass_flag",9:57)
+flag_M15_gather <-flag_M15 %>% gather("dimensional_feature","pass_flag",9:57)
+flag_machines <-rbind(flag_M13_gather,flag_M15_gather)
+```
+
+Logit on Likelihood to pass:
+
+1. set seed and split into train and test
+```{r include=FALSE}
+## 75% of the sample size
+smp_size <- floor(0.75 * nrow(flag_machines))
+
+## set the seed to make your partition reproducible
+set.seed(123)
+train_ind <- sample(seq_len(nrow(flag_machines)), size = smp_size)
+
+train <- flag_machines[train_ind, ]
+test <- flag_machines[-train_ind, ]
+```
+
+2. Train Logistic Regression Model
+```{r include=FALSE}
+#logistic regression model
+model <- glm (pass_flag ~ .-Part_Desc, data = train, family = binomial)
+```
+
+
+The Table might seem long, to view the prediction results, please move to the adjacent tabs.
+```{r}
+summary(model)
+```
+
+### Evaluate on Training Data:
+3. Predict on Train
+```{r include=FALSE}
+predict <- predict(model, type = 'response')
+```
+
+4. Check Confusion Matrix:
+      
+      From the below table we can say that, the model predicted fail for 2460/ 27709 observations, out of which 1498 were       correct predictions and 962 were false negatives. 
+      
+      Also, the model predicted pass for 25249 observations of which 24659 were correctly predicted and 590 are false           positives. 
+      
+      
+```{r}
+#confusion matrix
+table(train$pass_flag, predict > 0.5) %>% kable()
+```
+
+
+
+
+5. ROC Curve: The Higher the Area under the curve, better is the model.
+```{r}
+#ROCR Curve
+ROCRpred <- prediction(predict, train$pass_flag)
+ROCRperf <- performance(ROCRpred, 'tpr','fpr')
+plot(ROCRperf, colorize = TRUE, text.adj = c(-0.2,1.7))
+```
+
+
+
+6. AUC Training: 93.21%
+```{r}
+roc_obj <- roc(train$pass_flag, predict)
+auc(roc_obj)
+```
+
+
+7. Measure Model Accuracy on taining data:
+```{r}
+fitted.results <- ifelse(predict > 0.5,1,0) %>% as.factor()
+cm<-confusionMatrix(data=fitted.results, 
+  reference=as.factor(train$pass_flag))
+
+Accuracy<-round(cm$overall[1],2)
+```
+        
+        Hence the accuracy of this base model is :
+        
+        Accurary = (True Positives +True Negatives)/Total = `r round(Accuracy*100,2)` %
+
+
+```{r include=FALSE}
+#7. Add probability to pass as a column in training data:
+train$predicted <- predict
+```
+
+
+
+
+
+### Evaluate on Test Data:
+
+3. Predict on Test
+```{r include=FALSE}
+predict <- predict(model,newdata=test, type = 'response')
+```
+
+4. Check Confusion Matrix
+```{r}
+#confusion matrix
+table(test$pass_flag, predict > 0.5)%>% kable()
+```
+
+
+5. ROC Curve
+
+```{r}
+#ROCR Curve
+library(ROCR)
+ROCRpred <- prediction(predict, test$pass_flag)
+ROCRperf <- performance(ROCRpred, 'tpr','fpr')
+plot(ROCRperf, colorize = TRUE, text.adj = c(-0.2,1.7))
+```
+
+
+6. AUC Test data: 88.47%
+```{r}
+roc_obj <- roc(test$pass_flag, predict)
+auc(roc_obj)
+```
+
+
+
+7. Measure Model Accuracy on test data:
+```{r}
+
+fitted.results <- ifelse(predict > 0.5,1,0) %>% as.factor()
+cm<-confusionMatrix(data=fitted.results, 
+  reference=as.factor(test$pass_flag))
+
+Accuracy<-round(cm$overall[1],2)
+
+```
+    
+    
+        Hence the accuracy of this base model is :
+        
+        Accurary = (True Positives +True Negatives)/Total = `r round(Accuracy*100,2)` %
+        
+
+```{r}
+# 7. Add probability to pass as a column in test data:
+test$predicted <- predict
+```
+Accuracy on test data is 91%.
+
+### Consolidation:
+```{r}
+modelled_dataset <-rbind(train, test) %>% arrange(predicted)
+```
+
+In the part analysis dataset, we would now list the part-feature & batch combinations which have low likelihood to pass the process test:
+```{r}
+modelled_dataset[which(modelled_dataset$predicted <0.3),]
+```
+\  
+
+The above table shows the combinations which have high likelihood to fail. The predicted column shows the probability of passing the test and they range from 2% to 29% in the above table.
+
+
+SHINY DECISION TOOL: interactive tool (to be built in future)
+
+
+
+```{r,eval=FALSE, echo=TRUE}
+## source code printed, but yet under process
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-pageWithSidebar(
+  
+  # Application title
+  headerPanel("Select the batch inputs to check likelihood of passing the process quality test"),
+  
+  sidebarPanel(
+                selectInput("select_Part_Desc", 
+                            "Choose a Part Description:", 
+                            choices = modelled_dataset$Part_Desc,
+                            selected = "06_02_2015-035_PART:RE_T15E0065177_F:Fixture_D72__Purpose_In-Process"
+                            
+                ),
+                
+                selectInput("select_part_names", 
+                            "Choose a Part Group:", 
+                            choices = modelled_dataset$part_names,
+                            selected = "RE_T15E0065177_F"
+                            
+                ),
+                
+                selectInput("select_date", 
+                            "Input a Date and Time:", 
+                            choices = modelled_dataset$Date,
+                            selected = "2015-06-02 00:35:10 UTC"
+                            
+                ),
+                
+                
+                selectInput("select_status", 
+                            "Select the status:", 
+                            choices = modelled_dataset$Status,
+                            selected = "Purpose_In-Process"
+                            
+                ),
+                
+                
+                selectInput("select_shift", 
+                            "Choose the Shift:", 
+                            choices = modelled_dataset$Shift,
+                            selected = "Shift_C"
+                            
+                ),
+                
+                selectInput("select_trim", 
+                            "Choose TRIM characters:", 
+                            choices = modelled_dataset$Trim,
+                            selected = "TCMM_05"
+                            
+                ),
+                
+                                
+                selectInput("select_fix", 
+                            "Choose Fixture type:", 
+                            choices = modelled_dataset$Fixture_model,
+                            selected = "Fixture_D72"
+                            
+                ),
+                
+                
+                selectInput("select_machine", 
+                            "Input the Machine type:", 
+                            choices = modelled_dataset$Machine,
+                            selected = "Machine_13"
+                            
+                ),
+                
+                
+                selectInput("select_feature", 
+                            "Choose the dimensional feature:", 
+                            choices = modelled_dataset$dimensional_feature,
+                            selected = "C0009DF073_SC07_DIA"
+                            
+                )
+              ),
+  
+
+  mainPanel(
+                verbatimTextOutput("Likelihood to Pass")
+
+          )
+),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+  output$text <- renderText({
+    "Likelihood to Pass is :" logit(input$select_Part_Desc,
+           input$select_part_names,
+           input$select_date,
+           input$select_status,
+           input$select_shift,
+           input$select_trim,
+           input$select_fix,
+           input$select_machine,
+           input$select_feature)
+  })
+  
+}),
+  
+options = list(height = 500) 
+  
+)
+```

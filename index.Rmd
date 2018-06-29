@@ -1,0 +1,71 @@
+---
+title: "Introduction"
+fontsize: 50 pt
+output:
+  html_document: 
+    df_print: paged
+    highlight: tango
+
+---
+
+
+```{r setup, include= FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.align="center")
+```
+
+
+\  
+
+
+
+![](docs/roadster.jpg){ width=100% }
+
+
+ \  
+ 
+
+## Tesla Interview Assignment
+
+This site provides an overview of the available machine parts data of Tesla and its part & feature analysis to asses process capability.
+
+
+
+
+
+* The `Goal` page provides the scope of the assignmment. It also details out the constraints and assumptions made for the analysis of the project.
+
+
+
+
+
+* The `Data` menu has two entries:
+
+    - The first one is about the *data structure*
+
+    - The second entry gives detailed information about *data dictionary* and contains multiple tabs
+
+
+
+
+
+* The `Visualization` menu has 4 entries:
+
+    - The first one is *Static Visualization 1 Statistical Analysis*. It lists out all the static visualizations in different tabs along with the code (folded and can be expanded for reference)
+
+    - The second entry provides an insight into *Static Visualization 2 in Dimensionality reduction* using PCA and TSNE 
+
+    - The third entry is based on *Static Visualization 3 in Predictive Modeling* 
+ 
+    - The last entry is *Interactive Visualization with Shiny* integration
+    
+
+
+
+* The `Project-Timeline` page provides a recap of the steps along with thir timeline
+
+
+
+
+
+
+
