@@ -32,6 +32,11 @@ library(readxl)
 library(shiny)
 library(rsconnect)
 library(ggplot2)
+library(stats)
+library(cluster)
+library(scatterplot3d)
+library(caret)
+library(Rtsne)
 ```
 
 
@@ -515,15 +520,16 @@ data_summary <- function(data, varname, groupnames){
   library(plyr)
   data_sum<-plyr::ddply(data, groupnames, .fun=summary_func,
                   varname)
+  data_sum <- plyr::rename(data_sum, c("mean" = varname))
+
   library(dplyr)
-  data_sum <- rename(data_sum, c("mean" = varname))
  return(data_sum)
 }
 ```
 
 
 
-```{r include= FALSE}
+```{r include=FALSE }
 #Visualize Variations across Fixtures w.r.t Diameter:
 ## table consolidation of count fail and count pass for each dimensional feature
 count_all_fixtures <- rbind(count_D71, count_D72, count_D73, count_F11, count_F12, count_F13)
@@ -767,12 +773,13 @@ shinyUI <-pageWithSidebar(
   
   sidebarPanel(
                     # data select
-                    uiOutput("choose_feature_cate"),
+                selectInput("feature_category", 
+                            "Feature Category", 
+                            as.list(feature_cate), 
+                            selected="Diameter"),
+
                     
-                    uiOutput("choose_columns"),
-                    # variables select
-                    
-                    uiOutput("variable_select")
+                    uiOutput("choose_columns")
                 
               ),
   
@@ -790,10 +797,6 @@ shinyUI <-pageWithSidebar(
 shinyServer <-(function(input, output) {
     # data
   
-  output$choose_feature_cate <- renderUI({
-    selectInput("feature_category", "Feature Category", as.list(feature_cate))
-  })
-  
   output$featureCate_select <- renderText({
     x <- input$feature_category
     paste("The Feature Category is",x)
@@ -801,29 +804,27 @@ shinyServer <-(function(input, output) {
   
   # varible select
   output$choose_columns <- renderUI({
-    # If missing input, return to avoid error later in function
-    if(is.null(input$feature_category))
-      return()
+    req(input$feature_category)
     
     # Get the variable category with the appropriate name
     if(input$feature_category == "Diameter") {
-      colnames <- as.vector(unique(dia_features))
+      colnamess <- as.vector(unique(dia_features))
     } else if (input$feature_category == "Distance"){
-      colnames <- as.vector(unique(dist_features)) 
+      colnamess <- as.vector(unique(dist_features)) 
     }else if (input$feature_category == "Flatness"){
-      colnames <- as.vector(unique(flt_features)) 
+      colnamess <- as.vector(unique(flt_features)) 
     }else if (input$feature_category == "Cylindricity"){
-      colnames <- as.vector(unique(cyl_features)) 
+      colnamess <- as.vector(unique(cyl_features)) 
     }else if (input$feature_category == "TP"){
-      colnames <- as.vector(unique(tp_features)) 
+      colnamess <- as.vector(unique(tp_features)) 
     }else {
-      colnames <- as.vector(unique(dia_features))
+      colnamess <- as.vector(unique(dia_features))
     }
 
     
     # Create the checkboxes and select them all by default
     selectInput("columns", "Choose columns", 
-                choices  = colnames)
+                choices  = colnamess)
   })
   
   output$variables_select_value <- renderText({
@@ -832,6 +833,8 @@ shinyServer <-(function(input, output) {
   
 #compare_means("Cylindricity", "C0009P0053_SC05_CYL")
    output$plot3 <- renderPlot({
+     req(input$feature_category)
+     req(input$columns)
     compare_means(input$feature_category, input$columns)
   }) 
 
@@ -1516,12 +1519,64 @@ colnames(feature_issue_score) <- c("feature", "score")
 
 ```{r}
 # Visualize feature wise scores:
-ggplot(data=feature_issue_score, aes(x=reorder(feature,-score), y=score)) +
+aggregate_score <-ggplot(data=feature_issue_score, aes(x=reorder(feature,-score), y=score)) +
     geom_bar(stat="identity") + theme_classic()+ 
     geom_text(aes(label = round(score,2)),size=2.4, vjust=-0.75,angle=45)+   
   geom_hline(yintercept = mean(feature_issue_score$score))+
   theme(axis.text = element_text(angle = 90,hjust=1,size = 8))+
   xlab(" Part Feature") + ylab("Score of Failure") 
+```
+
+
+```{r}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-fluidPage(
+  fluidRow(
+    column(width = 12,class = "well",
+      h4("Brush and double-click to zoom the feature scores"),
+      plotOutput("plot1", height = 700,
+        dblclick = "plot1_dblclick",
+        brush = brushOpts(
+          id = "plot1_brush",
+          resetOnNew = TRUE
+        )
+      )
+    )
+    )
+  ),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+  # Single zoomable plot (on left)
+  ranges <- reactiveValues(x = NULL, y = NULL)
+
+  output$plot1 <- renderPlot({
+    aggregate_score + coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = FALSE)
+  })
+
+  # When a double-click happens, check if there's a brush on the plot.
+  # If so, zoom to the brush bounds; if not, reset the zoom.
+  observeEvent(input$plot1_dblclick, {
+    brush <- input$plot1_brush
+    if (!is.null(brush)) {
+      ranges$x <- c(brush$xmin, brush$xmax)
+      ranges$y <- c(brush$ymin, brush$ymax)
+
+    } else {
+      ranges$x <- NULL
+      ranges$y <- NULL
+    }
+  })
+  
+}),
+  
+options = list(height = 500) 
+  
+)
 ```
 
 \  
@@ -1761,7 +1816,9 @@ options = list(height = 500)
 
 We next visulize compare their means and standard deviations through the below plot:
 
-```{r}
+
+```{r message=FALSE}
+#compare_means("Cylindricity", "C0009P0053_SC05_CYL")
 shinyApp(
   
 # Define UI for dataset viewer application
@@ -1772,12 +1829,13 @@ shinyUI <-pageWithSidebar(
   
   sidebarPanel(
                     # data select
-                    uiOutput("choose_feature_cate"),
+                selectInput("feature_category", 
+                            "Feature Category", 
+                            as.list(feature_cate), 
+                            selected="Diameter"),
+
                     
-                    uiOutput("choose_columns"),
-                    # variables select
-                    
-                    uiOutput("variable_select")
+                    uiOutput("choose_columns")
                 
               ),
   
@@ -1795,10 +1853,6 @@ shinyUI <-pageWithSidebar(
 shinyServer <-(function(input, output) {
     # data
   
-  output$choose_feature_cate <- renderUI({
-    selectInput("feature_category", "Feature Category", as.list(feature_cate))
-  })
-  
   output$featureCate_select <- renderText({
     x <- input$feature_category
     paste("The Feature Category is",x)
@@ -1806,29 +1860,27 @@ shinyServer <-(function(input, output) {
   
   # varible select
   output$choose_columns <- renderUI({
-    # If missing input, return to avoid error later in function
-    if(is.null(input$feature_category))
-      return()
+    req(input$feature_category)
     
-    # Get the data set with the appropriate name
+    # Get the variable category with the appropriate name
     if(input$feature_category == "Diameter") {
-      colnames <- as.vector(unique(dia_features))
+      colnamess <- as.vector(unique(dia_features))
     } else if (input$feature_category == "Distance"){
-      colnames <- as.vector(unique(dist_features)) 
+      colnamess <- as.vector(unique(dist_features)) 
     }else if (input$feature_category == "Flatness"){
-      colnames <- as.vector(unique(flt_features)) 
+      colnamess <- as.vector(unique(flt_features)) 
     }else if (input$feature_category == "Cylindricity"){
-      colnames <- as.vector(unique(cyl_features)) 
+      colnamess <- as.vector(unique(cyl_features)) 
     }else if (input$feature_category == "TP"){
-      colnames <- as.vector(unique(tp_features)) 
+      colnamess <- as.vector(unique(tp_features)) 
     }else {
-      return()
+      colnamess <- as.vector(unique(dia_features))
     }
 
     
-  # Create the checkboxes and select them all by default
-  selectInput("columns", "Choose columns", 
-              choices  = colnames)
+    # Create the checkboxes and select them all by default
+    selectInput("columns", "Choose columns", 
+                choices  = colnamess)
   })
   
   output$variables_select_value <- renderText({
@@ -1837,6 +1889,8 @@ shinyServer <-(function(input, output) {
   
 #compare_means("Cylindricity", "C0009P0053_SC05_CYL")
    output$plot3 <- renderPlot({
+     req(input$feature_category)
+     req(input$columns)
     compare_means(input$feature_category, input$columns)
   }) 
 
@@ -1998,6 +2052,7 @@ shinyUI <-pageWithSidebar(
 shinyServer <-(function(input, output) {
   
   output$plot6 <- renderPlot({
+    req(input$feature)
     fixture_diff(input$feature)
   })
   
@@ -2380,14 +2435,14 @@ ggheatmap <- ggplot(melted_cormat, aes(Var2, Var1, fill = value))+
     name="Pearson\nCorrelation") +
   theme_minimal()+ # minimal theme
  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
-    size = 6, hjust = 1))+
- coord_fixed()
+    size = 6, hjust = 1), axis.text.y = element_text(angle = 45, vjust = 1, 
+    size = 6, hjust = 1))
 ```
 
 
 ```{r}
-ggheatmap +
-#geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) +
+heatmap <-ggheatmap +
+geom_text(aes(Var2, Var1, label = value), color = "black", size = 2) +
 theme(
   axis.title.x = element_blank(),
   axis.title.y = element_blank(),
@@ -2396,10 +2451,62 @@ theme(
   panel.background = element_blank(),
   axis.ticks = element_blank(),
   legend.justification = c(1, 0),
-  legend.position = c(0.7, 0.8),
+  legend.position = "bottom",
   legend.direction = "horizontal")+
   guides(fill = guide_colorbar(barwidth = 4, barheight = 0.5,
                 title.position = "top", title.hjust = 0.5))
+```
+
+
+```{r}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-fluidPage(
+  fluidRow(
+    column(width = 12,class = "well",
+      h4("Brush and double-click to zoom"),
+      plotOutput("plot1", height = 700,
+        dblclick = "plot1_dblclick",
+        brush = brushOpts(
+          id = "plot1_brush",
+          resetOnNew = TRUE
+        )
+      )
+    )
+    )
+  ),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+  # Single zoomable plot (on left)
+  ranges <- reactiveValues(x = NULL, y = NULL)
+
+  output$plot1 <- renderPlot({
+    heatmap + coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = FALSE)
+  })
+
+  # When a double-click happens, check if there's a brush on the plot.
+  # If so, zoom to the brush bounds; if not, reset the zoom.
+  observeEvent(input$plot1_dblclick, {
+    brush <- input$plot1_brush
+    if (!is.null(brush)) {
+      ranges$x <- c(brush$xmin, brush$xmax)
+      ranges$y <- c(brush$ymin, brush$ymax)
+
+    } else {
+      ranges$x <- NULL
+      ranges$y <- NULL
+    }
+  })
+  
+}),
+  
+options = list(height = 500) 
+  
+)
 ```
 \  
 
@@ -2509,9 +2616,74 @@ part_rate_summary <-part_rate_summary[,c(1,2,52)]
 part_aggregate <- part_fail_summary %>% left_join(part_pass_summary, by = c("Machine_type","part_names"))
 part_aggregate$failure_prop <-round(part_aggregate$total_failures/ (part_aggregate$total_failures + part_aggregate$total_pass),3)
 part_aggregate_top20_failures <- part_aggregate %>% arrange(desc(failure_prop)) %>% slice(1:20)
-part_aggregate_top20_failures
 ```
 
+
+
+
+
+```{r}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-fluidPage(
+  
+    titlePanel("Part Summary of Bottom 40 performing parts having Maximum proportion of Failure"),
+
+  # Create a new Row in the UI for selectInputs
+  fluidRow(
+    column(4,
+        selectInput("machine",
+                    "Machine:",
+                    c("All",
+                      unique(as.character(part_aggregate_top20_failures$Machine_type))))
+    ),
+    column(4,
+        selectInput("part",
+                    "Part:",
+                    c("All",
+                      unique(as.character(part_aggregate_top20_failures$part_names))))
+    ),
+    column(4,
+        selectInput("prop",
+                    "Failure Proportion:",
+                    c("All",
+                      unique(as.character(part_aggregate_top20_failures$failure_prop))))
+    )
+  ),
+  # Create a new row for the table.
+  fluidRow(
+    DT::dataTableOutput("table")
+  )
+  
+  ),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+ # Filter data based on selections
+  output$table <- DT::renderDataTable(DT::datatable({
+    data <- part_aggregate_top20_failures
+    if (input$machine != "All") {
+      data <- data[data$Machine_type == input$machine,]
+    }
+    if (input$part != "All") {
+      data <- data[data$part_names == input$part,]
+    }
+    if (input$prop != "All") {
+      data <- data[data$failure_prop == input$prop,]
+    }
+    data
+  }))
+
+  
+}),
+  
+options = list(height = 500) 
+  
+)
+```
 \  
 
 The above table displays the proportion of failures for each part group. From here we can say that worst performing parts are:
@@ -2526,8 +2698,71 @@ The above table displays the proportion of failures for each part group. From he
 The parts that are working most successfully are:
 ```{r}
 part_aggregate_bottom20_failures <- part_aggregate %>% arrange((failure_prop)) %>% slice(1:20)
-part_aggregate_bottom20_failures
 ```
+
+```{r}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-fluidPage(
+  
+    titlePanel("Part Summary of Top 40 performing parts having least proportion of Failure"),
+
+  # Create a new Row in the UI for selectInputs
+  fluidRow(
+    column(4,
+        selectInput("machine",
+                    "Machine:",
+                    c("All",
+                      unique(as.character(part_aggregate_bottom20_failures$Machine_type))))
+    ),
+    column(4,
+        selectInput("part",
+                    "Part:",
+                    c("All",
+                      unique(as.character(part_aggregate_bottom20_failures$part_names))))
+    ),
+    column(4,
+        selectInput("prop",
+                    "Failure Proportion:",
+                    c("All",
+                      unique(as.character(part_aggregate_bottom20_failures$failure_prop))))
+    )
+  ),
+  # Create a new row for the table.
+  fluidRow(
+    DT::dataTableOutput("table")
+  )
+  
+  ),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+ # Filter data based on selections
+  output$table <- DT::renderDataTable(DT::datatable({
+    data <- part_aggregate_bottom20_failures
+    if (input$machine != "All") {
+      data <- data[data$Machine_type == input$machine,]
+    }
+    if (input$part != "All") {
+      data <- data[data$part_names == input$part,]
+    }
+    if (input$prop != "All") {
+      data <- data[data$failure_prop == input$prop,]
+    }
+    data
+  }))
+
+  
+}),
+  
+options = list(height = 500) 
+  
+)
+```
+
 \  
 
 Parts with no failures are:
@@ -2556,4 +2791,137 @@ Parts with no failures are:
  8 T15E0065223_F              
  9 T15E0065239_F              
 10 T15E0065242_F 
+
+
+### Dimensionality Reduction: 
+
+```{r include= FALSE}
+measures_M13_new <- M13[,c(1,7:ncol(M13))] %>% mutate(Part_Desc = paste0(Part_Desc,"_M13"))
+measures_M15_new <- M15[,c(1,7:ncol(M15))] %>% mutate(Part_Desc = paste0(Part_Desc,"_M15"))
+measurement_combine <- rbind(measures_M13_new, measures_M15_new)
+```
+
+
+```{r  include=FALSE}
+library(shiny)
+library(plotly)
+#install.packages("shinycssloaders")
+library(shinycssloaders)
+#install.packages("shinythemes")
+library(shinythemes)
+```
+
+Now let us move from 2-D reduction to 3-D reduction for more clarity:
+```{r include=FALSE}
+set.seed(9)
+measure_unique <- measurement_combine[, -c(1)]
+tsne <- Rtsne(as.matrix(measure_unique), check_duplicates=FALSE, pca=FALSE, perplexity=50, theta=0.5, dims=3)
+
+
+## getting the two dimension matrix
+d_tsne_1 = as.data.frame(tsne$Y) 
+```
+
+
+CREATING CLUSTER MODELS: The new principal components are shows below (top 2)
+
+```{r include=FALSE}
+## keeping original data
+d_tsne_1_original=d_tsne_1
+
+## Creating k-means clustering model, and assigning the result to the data used to create the tsne
+fit_cluster_kmeans=kmeans(scale(d_tsne_1), 8)  
+d_tsne_1_original$cl_kmeans = factor(fit_cluster_kmeans$cluster)
+
+mydata2 <- measurement_combine[, -c(1)]
+mydata2$cluster <- d_tsne_1_original$cl_kmeans
+```
+
+
+
+```{r include=FALSE}
+data_3D <-tsne$Y %>% as.data.frame() %>% mutate(label = mydata2$cluster)
+colnames(data_3D) <- c("X1","X2","X3","label")
+```
+
+
+```{r message=FALSE}
+shinyApp(
+  
+# Define UI for dataset viewer application
+shinyUI <-fluidPage(
+  navbarPage("t-SNE Visualization of Part Analysis Data Clusters",
+  theme = shinythemes::shinytheme("cyborg"),
+  tabPanel("3D Explorer",
+  withSpinner(plotlyOutput("plot"), color = "#808080"))
+  )
+),
+
+
+# Define server logic required to summarize and view the selected dataset
+shinyServer <-(function(input, output) {
+  
+  # Load the data
+  Y <- data_3D
+  label = Y$label
+  Y$label = NULL
+  # Layout configuration
+  m <- list(
+    l = 0,
+    r = 0,
+    b = 0,
+    t = 0,
+    pad = 0
+  )
+  # Axis configuration
+  ax <- list(
+         title = "",
+         zeroline = FALSE,
+         showline = FALSE,
+         showticklabels = FALSE,
+         showgrid = FALSE,
+         showspikes = FALSE
+  )
+  # Legend configuration
+  l <- list(
+        x = 1,
+        y = 0.5,
+        font = list(
+                family = "sans-serif",
+                size = 14,
+                color = "#FFFFFF"
+        ),
+        bgcolor = "#060606",
+        bordercolor = "#060606"
+  )
+ 
+  output$plot <- renderPlotly({
+    p <-plot_ly(type="scatter3d", x = Y[,1], y = Y[,2], z = Y[,3], color = as.factor(label),
+            marker = list(size = 3, opacity=0.8), hoverinfo="none",
+            width=800,  height = 800, mode="markers") %>%
+    config(displayModeBar = F)  %>%
+    layout(scene = list(xaxis=ax,yaxis=ax,zaxis=ax),
+           paper_bgcolor="#060606",
+           plot_bgcolor= "#060606",
+           legend = l
+    )
+    
+    p$elementId <- NULL
+    p
+  })
+  
+
+  
+}),
+  
+options = list(height = 900) 
+  
+)
+```
+
+```{r}
+# library(shiny)
+# shiny::runApp(system.file('/Users/swagatachakraborty/Documents/sc53711/Applications/Universities/UCSD/Assignments/my_Learning_folder/company_learning/Tesla/Tesla_Website', package='Swagata_App'))
+```
+
 
